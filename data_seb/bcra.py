@@ -175,24 +175,25 @@ def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     if api:
         df = get_series_api([(196, 'LEFI'), (58, 'LEFI_Flujo')])
     else:
-        df = get_file_bcra('BASE MONETARIA')
+        df = pd.read_excel(URL_OPER, header=[0, 1, 2])
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        lefis = df.loc[df['33'] == 'D', ['1', '15']].copy()
-        lefis.columns = ['Fecha', 'LEFI_Flujo']
-        lefis['LEFI'] = -lefis['LEFI_Flujo'].cumsum()
+        df = df.dropna(subset=['1', '2'])
+        df = df.loc[:, ['1', '3', '4', '5', '6']].copy()
+        df.columns = ['Fecha', 'VT', 'Publico', 'Privado', 'BCRA']
+        df['LEFI'] = df['Publico'] + df['Privado']
+        df['Fecha'] = pd.to_datetime(df['Fecha'])
+        df = df.set_index('Fecha', drop=False)
 
-        # Este ese el procesamiento del archivo.
-        # df = pd.read_excel(URL_OPER, header=[0, 1, 2])
+        # Por cumsum en el archivo series.xlsx
+        # df = get_file_bcra('BASE MONETARIA')
         # df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        # df = df.dropna(subset=['1', '2'])
-        # lefis = df.loc[:, ['1', '3', '4', '5', '6']].copy()
-        # lefis.columns = ['Fecha', 'VT', 'Publico', 'Privado', 'BCRA']
-        # lefis['LEFI_Stock'] = lefis.loc[:, 'Publico'] + lefis.loc[:, 'Privado']
-        # lefis['Fecha'] = pd.to_datetime(lefis['Fecha'])
+        # lefis = df.loc[df['33'] == 'D', ['1', '15']].copy()
+        # lefis.columns = ['Fecha', 'LEFI_Flujo']
+        # lefis['LEFI'] = -lefis['LEFI_Flujo'].cumsum()
     if date_cod:
-        return cod.get_date(df)[cod.COLS + ['LEFI', 'LEFI_Flujo']]
+        return cod.get_date(df)[cod.COLS + ['LEFI', 'LEFI_Flujo']].dropna()
     else:
-        return df
+        return df.dropna()
 
 def get_instrumentos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
@@ -247,7 +248,7 @@ def get_tc_oficial(date_cod: bool = False, api: bool = True, mensual: bool = Fal
             df = get_file_tc_oficial()
     if date_cod:
         return cod.get_date(df)[cod.COLS + ['TC_A3500']]
-    return df
+    return df.dropna()
 
 def get_cer() -> pd.DataFrame:
     """
