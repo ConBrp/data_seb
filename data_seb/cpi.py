@@ -1,7 +1,7 @@
 import pandas as pd
 import calendar
 
-import cod
+from . import cod
 
 
 

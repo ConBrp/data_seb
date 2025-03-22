@@ -1,7 +1,7 @@
 import pandas as pd
 import calendar
 
-import ipc
+from . import ipc
 
 URL_OYD = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_oferta_demanda_12_24.xls' # Ojo que el link del pbi cambia con el trimestre.
 URL_EMAE = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_emae_mensual_base2004.xls'
