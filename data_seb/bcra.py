@@ -116,7 +116,7 @@ def get_plazo_fijos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         return cod.get_date(df)
     return df
 
-def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False) -> pd.DataFrame:
+def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False, only_BMT: bool = False) -> pd.DataFrame:
     """
     Devuelve un df con los datos diarios de 'BMT', 'CM', 'df', 'DPB', 'CCBCRA', 'CC', 'BM', 'DT'.
     'BMT': Base monetaria totol = 'DPP' + 'DPB' + 'CCBCRA' + 'CC'.
@@ -129,21 +129,27 @@ def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False
     'BMTQ': 'BMT' + 'QM'.
     'DT': Dinero total = 'DPP' + 'DPB'.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date'.
+    :param date_cod: Define si agregan columns para código de fecha 'Date'.
     :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local.
     :param q:
+    :param only_BMT:
     :return: df 'Fecha', 'Date', 'Dia', 'BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT'.
     """
-    columnas = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT']
+    columns = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT']
+
     if api:
-        if q:
-            df = get_series_api(
-                [(15, 'BMT'), (16, 'CM'), (17, 'DPP'), (18, 'DPB'), (19, 'CCBCRA'), (69, 'CC'), (72, 'QM'),
-                 (73, 'BMTQ')])
+        if only_BMT:
+            df = get_from_api(15, 'BMT')
+            columns = ['BMT']
         else:
-            df = get_series_api(
-                [(15, 'BMT'), (16, 'CM'), (17, 'DPP'), (18, 'DPB'), (19, 'CCBCRA')])
-            columnas = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'DT']
+            if q:
+                df = get_series_api(
+                    [(15, 'BMT'), (16, 'CM'), (17, 'DPP'), (18, 'DPB'), (19, 'CCBCRA'), (69, 'CC'), (72, 'QM'),
+                     (73, 'BMTQ')])
+            else:
+                df = get_series_api(
+                    [(15, 'BMT'), (16, 'CM'), (17, 'DPP'), (18, 'DPB'), (19, 'CCBCRA')])
+                columns = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'DT']
     else: # En el archivo está la fecha 2010-12-31 y en la API no.
         df = get_file_bcra('BASE MONETARIA')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
@@ -151,9 +157,10 @@ def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False
         df.columns = ['Fecha', 'DPP', 'DPB', 'CC', 'CCBCRA', 'BMT', 'QM', 'BMTQ']
         df['CM'] = df['DPP'] + df['DPB'] + df['CC']
         df.index = df['Fecha']
-    df['DT'] = df['DPP'] + df['DPB']
+    if not only_BMT:
+        df['DT'] = df['DPP'] + df['DPB']
     if date_cod:
-        return cod.get_date(df)[cod.COLS + columnas].copy().dropna().sort_index()
+        return cod.get_date(df)[cod.COLS + columns].copy().dropna().sort_index()
     return df.dropna()
 
 def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
