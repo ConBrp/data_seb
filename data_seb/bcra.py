@@ -3,7 +3,7 @@ import requests
 import urllib3
 import concurrent.futures
 
-from .import cod
+from . import cod
 
 
 URL_BCRA = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/series.xlsm'
