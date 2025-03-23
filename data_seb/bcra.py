@@ -30,9 +30,9 @@ def get_file_bcra(sheet_name: str) -> pd.DataFrame:
 
 def get_file_tc_oficial() -> pd.DataFrame:
     """
-    Devuelve un DataFrame con los datos del tipo de cambio oficial (A3500) del BCRA.
+    Devuelve un DataFrame con los datos del tipo de cambio oficial (A3500) del archivo com3500.xls del BCRA.
 
-    Returns a DataFrame with the official exchange rate (A3500) data from the BCRA.
+    Returns a DataFrame with the official exchange rate (A3500) of the BCRA's com3500.xls file.
 
     :return: DataFrame 'Fecha', 'TC_A3500' / DataFrame 'Fecha', 'TC_A3500'.
     """

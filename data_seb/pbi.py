@@ -3,19 +3,31 @@ import calendar
 
 from . import ipc
 
-URL_OYD = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_oferta_demanda_12_24.xls' # Ojo que el link del pbi cambia con el trimestre.
+URL_OYD = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_oferta_demanda_12_24.xls'  # Ojo que el link del pbi cambia con el trimestre.
 URL_EMAE = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_emae_mensual_base2004.xls'
 URL_EMAE_A = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_emae_actividad_base2004.xls'
 
 
 def get_file_oyd(sheet_name: str, online: bool = True) -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con los datos de la hoja seleccionada del archivo de oferta y demanda del INDEC.
+
+    Returns a DataFrame with data from the selected sheet of the INDEC's supply and demand file.
+
+    :param sheet_name: Nombre de la hoja a devolver / Name of the sheet to retrieve.
+    :param online: Define si se utiliza la URL en línea o un archivo local / If True, use the online URL; otherwise, use a local file.
+    :return: DataFrame con datos de la hoja seleccionada / DataFrame with data from the selected sheet.
+    """
     return pd.read_excel(URL_OYD, decimal=',', sheet_name=sheet_name)
 
 
 def get_emae() -> pd.DataFrame:
     """
-    Devuelve un df con los valores del EMAE indizado con la fecha.
-    :return: df 'Original', 'Desestacionalizada', 'Tendencia_ciclo'.
+    Devuelve un DataFrame con los valores del EMAE indizado con la fecha.
+
+    Returns a DataFrame with EMAE values indexed by date.
+
+    :return: DataFrame 'Original', 'Desestacionalizada', 'Tendencia_ciclo' / DataFrame 'Original', 'Desestacionalizada', 'Tendencia_ciclo'.
     """
     df = pd.read_excel(URL_EMAE, header=[0, 1, 2, 3])
     df = df.iloc[:, [2, 4, 6]].dropna().copy()
@@ -26,8 +38,11 @@ def get_emae() -> pd.DataFrame:
 
 def get_emae_actividades() -> pd.DataFrame:
     """
-    Devuelve un df las actividades del EMAE indizado con la fecha.
-    :return: df con las actividades como columnas.
+    Devuelve un DataFrame con las actividades del EMAE indizado con la fecha.
+
+    Returns a DataFrame with EMAE activities indexed by date.
+
+    :return: DataFrame con las actividades como columnas / DataFrame with activities as columns.
     """
     df = pd.read_excel(URL_EMAE_A, header=[0, 1, 2, 3, 4])
     df = df.iloc[:, 2:].dropna().copy()
@@ -53,9 +68,12 @@ def get_emae_actividades() -> pd.DataFrame:
 
 def limpiar_serie_pbi(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Devuelve un df limpio de las series del pbi, ya que están en filas y con espacios en blanco.
-    :param df: El que contiene la serie del PBI con los promedios anuales también.
-    :return: df 'PBI'.
+    Devuelve un DataFrame limpio de las series del PBI, eliminando promedios anuales y espacios en blanco.
+
+    Returns a clean DataFrame of PBI series, removing annual averages and blank spaces.
+
+    :param df: DataFrame que contiene la serie del PBI con los promedios anuales / DataFrame containing the PBI series with annual averages.
+    :return: DataFrame 'PBI' / DataFrame 'PBI'.
     """
     df = df.iloc[1:].dropna().reset_index(drop=True)
     df.columns = ["PBI"]
@@ -69,8 +87,13 @@ def limpiar_serie_pbi(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_pbi_pcorrientes(file_infla_empalmada: str, sin_estimar: bool = True) -> pd.DataFrame:
     """
-    Devuelve un df con los PIB a precios corrientes trimestrales indizado con la fecha.
-    :return: df 'PBI'.
+    Devuelve un DataFrame con los PBI a precios corrientes trimestrales indizado con la fecha.
+
+    Returns a DataFrame with quarterly PBI at current prices indexed by date.
+
+    :param file_infla_empalmada: Ruta al archivo IPC2000.xlsx para estimaciones / Path to the IPC2000.xlsx file for estimations.
+    :param sin_estimar: Si es True, no estima los trimestres faltantes / If True, do not estimate missing quarters.
+    :return: DataFrame 'PBI' / DataFrame 'PBI'.
     """
     pib = pd.DataFrame(get_file_oyd('cuadro 8').loc[5])
     pib = limpiar_serie_pbi(pib)
@@ -117,8 +140,11 @@ def get_pbi_pcorrientes(file_infla_empalmada: str, sin_estimar: bool = True) -> 
 
 def get_pbi_real() -> pd.DataFrame:
     """
-    Devuelve un df con los PIB a reales trimestrales indizado con la fecha.
-    :return: df 'PBI'.
+    Devuelve un DataFrame con los PBI reales trimestrales indizado con la fecha.
+
+    Returns a DataFrame with quarterly real PBI indexed by date.
+
+    :return: DataFrame 'PBI' / DataFrame 'PBI'.
     """
     df = pd.DataFrame(get_file_oyd('cuadro 1').loc[5])
     return limpiar_serie_pbi(df)
@@ -126,10 +152,13 @@ def get_pbi_real() -> pd.DataFrame:
 
 def days_in_quarter(date: pd.Timestamp, cant_d: bool = True) -> int:
     """
-    Devuelve la cantidad de días de un trimestre, o la cantidad de días que van en uno. Pasando una fecha.
-    :param date: Fecha de referencia para los cálculos.
-    :param cant_d: Si devuelve solo la cantidad de días en el trimestre, lo que ya pasaron hasta la fecha.
-    :return: Cantidad de días.
+    Devuelve la cantidad de días de un trimestre, o la cantidad de días transcurridos en uno, según una fecha.
+
+    Returns the number of days in a quarter, or the number of days elapsed in one, based on a date.
+
+    :param date: Fecha de referencia para los cálculos / Reference date for calculations.
+    :param cant_d: Si es True, devuelve la cantidad total de días en el trimestre; si es False, los días transcurridos hasta la fecha / If True, return the total number of days in the quarter; if False, the days elapsed up to the date.
+    :return: Cantidad de días / Number of days.
     """
     year = date.year
     quarter = date.quarter
@@ -163,8 +192,17 @@ def days_in_quarter(date: pd.Timestamp, cant_d: bool = True) -> int:
     else:
         return days_corr
 
-def main():
+
+def main() -> None:
+    """
+    Ejecuta el programa principal para procesar datos del PBI.
+
+    Runs the main program to process PBI data.
+
+    :return: None / None.
+    """
     print(f'Se corrió el main de {__name__}')
+
 
 if __name__ == '__main__':
     main()
