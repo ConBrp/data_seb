@@ -139,7 +139,7 @@ def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False
 
     if api:
         if only_BMT:
-            df = get_from_api(15, 'BMT')
+            df = get_series_api([(15, 'BMT')])
             columns = ['BMT']
         else:
             if q:
@@ -295,116 +295,79 @@ def get_creditos(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
 
 # ----------------------------------------------------------------
 
-def get_tasas(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
+def get_tasas(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.DataFrame:
     """
     Devuelve un df con los datos diarios de las tasas de interés para los plazos fijos de 30-44 días.
-    :param online:
     :param date_cod: Si el df debe contener el código 'Date' o no.
+    :param api:
+    :param type:
     :return: df 'TNA', 'TEM', 'TEA'.
     """
-    df = get_file_bcra("TASAS DE MERCADO")
-    df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-    tasas = df[["1", "2", "3", '6']].copy()
-    tasas.columns = ["Fecha", "TNA_Gen", "TNA_100", "TNA_Dol"]
+    columns_pesos = ['TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'Fecha']
+    columns_dolares = ['TNA_GenD', 'TNA_100KD', 'TNA_1MD', 'Fecha']
 
-    for tasa in ("TNA_Gen", "TNA_100", "TNA_Dol"):
-        tasas[tasa] = tasas[tasa] / 100
-        tem = 'TEM'+'_'+tasa.split('_')[1]
-        tasas[tem] = tasas[tasa] / 12
-        tea = 'TEA' + '_' + tasa.split('_')[1]
-        tasas[tea] = (1 + tasas[tem]) ** 12 - 1
 
+    def get_file() -> pd.DataFrame:
+        df = get_file_bcra('TASAS DE MERCADO')
+        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
+        return df
+
+    def calculate_rates(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+        """
+        Calculate TEM and TEA for a subset of interest rate data.
+        """
+        df.columns = columns
+
+        for tasa in columns[:-1]:  # Skip 'Fecha'
+            df[tasa] = df[tasa] / 100
+
+            tem_col = f'TEM_{tasa.split("_")[1]}'
+            df[tem_col] = df[tasa] / 12
+
+            tea_col = f'TEA_{tasa.split("_")[1]}'
+            df[tea_col] = (1 + df[tem_col]) ** 12 - 1
+        df.index = df['Fecha']
+        return df
+
+    # Process based on type_value
+    match type:
+        case 0:  # Pesos only
+            if api:
+                tasas_pesos = get_series_api([(128, 'TNA_genP'), (129, 'TNA_100KP'), (131, 'TNA_1MP')])
+            else:
+                df = get_file()
+                tasas_pesos = df[['2', '3', '5', '1']].copy()
+            df = calculate_rates(tasas_pesos, columns_pesos)
+        case 1:  # Both pesos and dollars
+            if api:
+                tasas_pesos = get_series_api([(128, 'TNA_genP'), (129, 'TNA_100KP'), (131, 'TNA_1MP')])
+                tasas_dolares = get_series_api([(132, 'TNA_genD'), (133, 'TNA_100KD'), (134, 'TNA_1MD')]).fillna(0) # Se pone cero en los NA de 'TNA_1MD'
+            else:
+                df = get_file()
+                tasas_pesos = df[['2', '3', '5', '1']].copy()
+                tasas_dolares = df[['6', '7', '8', '1']].copy()
+                tasas_dolares['8'] = pd.to_numeric(tasas_dolares['8'], errors='coerce').fillna(0) # Se pone cero en los NA de 'TNA_1MD'
+            df = pd.concat([calculate_rates(tasas_pesos, columns_pesos).drop(columns='Fecha'),
+                            calculate_rates(tasas_dolares, columns_dolares)],
+                           axis='columns')
+        case 2:  # Dollars only
+            if api:
+                tasas_dolares = get_series_api([(132, 'TNA_genD'), (133, 'TNA_100KD'), (134, 'TNA_1MD')]).fillna(0) # Se pone cero en los NA de 'TNA_1MD'
+            else:
+                df = get_file()
+                tasas_dolares = df[['6', '7', '8', '1']].copy()
+                tasas_dolares['8'] = pd.to_numeric(tasas_dolares['8'], errors='coerce').fillna(0)  # Se pone cero en los NA de 'TNA_1MD'
+            df = calculate_rates(tasas_dolares, columns_dolares)
+
+        case _:
+            raise ValueError(f"Invalid type_value: {type}. Must be 0, 1, or 2.")
+    df = df.drop(columns='Fecha')
+    df['Fecha'] = df.index
     if date_cod:
-        return cod.get_date(tasas)
-    return tasas
-
-
-def get_tcrm(date_cod: bool = True, temporalidad: int = 1) -> pd.DataFrame: # TODO ver.
-    """
-    :param date_cod:  Define si agregan columnas para código de fecha 'Date' o no.
-    :return: ''
-    """
-    if temporalidad in (1, 3):
-        tcrm_diario = pd.read_excel(FILE_BCRA_TCRM, sheet_name='ITCRM y bilaterales',
-                                    header=[1]).dropna().rename(columns={'Período': 'Fecha'})
-        tcrm_diario['Fecha'] = pd.to_datetime(tcrm_diario.loc[:, 'Fecha'])
-        if date_cod and temporalidad != 3:
-            return cod.get_date(tcrm_diario)
-        return tcrm_diario
-    elif temporalidad in (2, 3):
-        tcrm_mensual = pd.read_excel(FILE_BCRA_TCRM, sheet_name='ITCRM y bilaterales prom. mens.',
-                                     header=[1]).dropna().rename(columns={'Período': 'Fecha'})
-        tcrm_mensual['Fecha'] = pd.to_datetime(tcrm_mensual.loc[:, 'Fecha'])
-        if date_cod and temporalidad != 3:
-            return cod.get_date(tcrm_mensual)
-        return tcrm_mensual
-    if date_cod:
-        return tcrm_diario, tcrm_mensual
-    return tcrm_diario, tcrm_mensual
-
-
-def get_M2(date_cod: bool = True) -> pd.DataFrame:
-    dep = get_file_bcra("DEPOSITOS")
-    dep.columns = [str(i) for i in range(1, len(dep.columns) + 1)]
-    m2 = dep.loc[dep["30"] == "D", ["1", "29"]].copy()
-    m2.columns = ["Fecha", "M2"]
-    if date_cod:
-        return cod.get_date(m2)[['Fecha', 'M2', 'Date', 'Dia']].copy()
-    else:
-        return m2
-
-
-def get_usd_depositos(tipo: int = 3):
-    match tipo:
-        case 1:
-            return get_file_bcra_plus(4, [539, 540]).rename(columns={539: "Total_Total", 540: "Total_efectivo"})
-        case 2:
-            return get_file_bcra_plus(4, [681, 682]).rename(columns={681: "Publico_Total", 682: "Publico_efectivo"})
-        case 3:
-            return get_file_bcra_plus(4, [821, 822]).rename(columns={821: "Privado_Total", 822: "Privado_efectivo"})
-
-
-
-def get_UVA() -> pd.DataFrame:
-    url = "https://api.estadisticasbcra.com/uva"
-    headers = {
-        'Authorization': creds.bcra_script['KEY_UO_API']
-    }
-    response = requests.get(url, headers=headers)
-    df = pd.DataFrame(response.json())
-    df["d"] = pd.to_datetime(df["d"])
-    df.columns = ["Fecha", "UVA"]
+        return cod.get_date(df)
     return df
 
 
-def mesreal(mes: int) -> int:
-    if mes > 2:
-        return mes - 2
-    elif mes == 2:
-        return 12
-    else:
-        return 11
-
-
-def añoreal(row) -> int:
-    if row["Mes"] < 11:
-        return row["Año"]
-    else:
-        return row["Año"] - 1
-
-
-def mesmasuno(mes: int) -> int:
-    if mes < 12:
-        return mes + 1
-    else:
-        return 1
-
-
-def añomasuno(mes: int, año: int) -> int:
-    if mes < 12:
-        return año
-    else:
-        return año + 1
 
 
 def main() -> None:
