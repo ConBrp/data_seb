@@ -314,17 +314,15 @@ def get_tc_oficial(date_cod: bool = False, api: bool = True, mensual: bool = Fal
     if api:
         if mensual:
             df = get_from_api(5, 'TC_A3500').resample('MS').mean()
-            df['Fecha'] = df.index
         else:
             df = get_from_api(5, 'TC_A3500')
-            df['Fecha'] = df.index
     else:
         if mensual:
             df = get_file_tc_oficial().resample('MS').mean()
-            df['Fecha'] = df.index
         else:
             df = get_file_tc_oficial()
     if date_cod:
+        df['Fecha'] = df.index
         return cod.get_date(df)[cod.COLS + ['TC_A3500']]
     return df.dropna()
 
@@ -351,8 +349,7 @@ def get_reservas(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     :return: DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año'.
     """
     if api:
-        df = get_from_api(1, 'RRII')
-        df['Fecha'] = df.index
+        df = get_series_api([(1, 'RRII')])
     else:
         df = get_file_bcra('RESERVAS')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
