@@ -16,6 +16,18 @@ URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.
 URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias'
 
 
+def conviert_date(fecha):
+    """
+    Convierte una fecha en formato string a un objeto datetime.
+
+    Converts a date in string format to a datetime object.
+
+    :param fecha: Fecha en formato string / Date in string format.
+    :return: Objeto datetime / Datetime object.
+    """
+    return pd.to_datetime(fecha)
+
+
 def get_file_bcra(sheet_name: str) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos de la hoja seleccionada del archivo series.xlsm del BCRA.
@@ -39,6 +51,20 @@ def get_file_tc_oficial() -> pd.DataFrame:
     df = pd.read_excel(URL_BCRA_TC, header=3).dropna(axis='columns')
     df.columns = ['Fecha', 'TC_A3500']
     df.index = pd.to_datetime(df['Fecha'])
+    return df
+
+
+def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
+
+    Returns a DataFrame with data from the Multilateral Real Exchange Rate Index (ITCRM) of the BCRA.
+
+    :param sheet_name: Nombre de la hoja a procesar (diaria o promedio mensual) / Name of the sheet to process (daily or monthly average).
+    :return: DataFrame con columnas 'Fecha' y datos del ITCRM / DataFrame with 'Fecha' column and ITCRM data.
+    """
+    df = pd.read_excel(URL_BCRA_TCRM, sheet_name=sheet_name, header=[1]).dropna().rename(columns={'Período': 'Fecha'})
+    df['Fecha'] = pd.to_datetime(df['Fecha'])
     return df
 
 
@@ -478,6 +504,26 @@ def get_tasas(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
     return df
 
 
+def get_itcrm(date_cod: bool = False, monthly: bool = False):
+    """
+    Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
+
+    Returns a DataFrame with data from the Multilateral Real Exchange Rate Index (ITCRM) of the BCRA.
+
+    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
+    :param monthly: Define si se devuelven promedios mensuales / If True, return monthly averages.
+    :return: DataFrame con columnas 'Fecha' y datos del ITCRM, opcionalmente con 'Date', 'Dia', 'Mes', 'Año' / DataFrame with 'Fecha' column and ITCRM data, optionally with 'Date', 'Dia', 'Mes', 'Año'.
+    """
+    if monthly:
+        if date_cod:
+            return cod.get_date(get_file_itcrm('ITCRM y bilaterales prom. mens.'))
+        return get_file_itcrm('ITCRM y bilaterales prom. mens.').set_index('Fecha')
+    else:
+        if date_cod:
+            return cod.get_date(get_file_itcrm('ITCRM y bilaterales'))
+        return get_file_itcrm('ITCRM y bilaterales').set_index('Fecha')
+
+
 def main() -> None:
     """
     Ejecuta el programa principal para procesar datos del BCRA.
@@ -486,7 +532,6 @@ def main() -> None:
 
     :return: None / None.
     """
-    ...
 
 
 if __name__ == '__main__':
