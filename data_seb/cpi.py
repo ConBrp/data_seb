@@ -118,6 +118,7 @@ def get_cpi(file_cpi1913: str = '', api: bool = False, api_key: str = '', witch:
         cpi['InflaMensual'] = cpi['CPI'].pct_change()
         cpi = cod.get_date(cpi, day=False)
         cpi['CantD'] = cpi.apply(lambda row: calendar.monthrange(row['Año'], row['Mes'])[1], axis=1)
+        # TODO set index date.
         return cpi[cod.COLS[:-1] + ['CPI', 'InflaMensual', 'CantD']].copy()
 
 def get_act_cap(df: pd.DataFrame, us: bool = False) -> pd.DataFrame:
