@@ -16,18 +16,6 @@ URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.
 URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias'
 
 
-def conviert_date(fecha):
-    """
-    Convierte una fecha en formato string a un objeto datetime.
-
-    Converts a date in string format to a datetime object.
-
-    :param fecha: Fecha en formato string / Date in string format.
-    :return: Objeto datetime / Datetime object.
-    """
-    return pd.to_datetime(fecha)
-
-
 def get_file_bcra(sheet_name: str) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos de la hoja seleccionada del archivo series.xlsm del BCRA.
@@ -108,7 +96,7 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     return df.sort_index()
 
 
-def get_series_api(arguments: list[tuple]) -> pd.DataFrame:
+def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
     """
     Devuelve un DataFrame con múltiples variables desde la API del BCRA usando solicitudes concurrentes.
 
@@ -122,7 +110,8 @@ def get_series_api(arguments: list[tuple]) -> pd.DataFrame:
         nombre = [arg[1] for arg in arguments]
         results = executor.map(get_from_api, idvariable, nombre)
     df = pd.concat(list(results), axis='columns')
-    df['Fecha'] = df.index
+    if date:
+        df['Fecha'] = df.index
     return df
 
 
@@ -364,6 +353,17 @@ def get_cer() -> pd.DataFrame:
     return get_from_api(30, 'CER')
 
 
+def get_uva() -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con la serie del coeficiente CER indexada por fecha del BCRA.
+
+    Returns a DataFrame with the CER coefficient series indexed by date from the BCRA.
+
+    :return: DataFrame 'CER' / DataFrame 'CER'.
+    """
+    return get_from_api(31, 'UVA')
+
+
 def get_reservas(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con la serie de las reservas internacionales brutas del BCRA, indexado por fecha.
@@ -503,6 +503,9 @@ def get_tasas(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
         return cod.get_date(df)
     return df
 
+
+def get_tasas_referencia() -> pd.DataFrame:
+    return get_series_api([(135, 'TAMAR'), (138, 'BADLAR'), (141, 'TM20')])
 
 def get_itcrm(date_cod: bool = False, monthly: bool = False):
     """
