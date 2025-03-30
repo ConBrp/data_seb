@@ -38,7 +38,7 @@ def get_date_ipc(df: pd.DataFrame) -> pd.DataFrame:
     df['Periodo'] = pd.to_datetime(df['Periodo'], format='%Y%m')
     df['Mes'] = df['Periodo'].dt.month
     df['Año'] = df['Periodo'].dt.year
-    df['Date'] = df['Periodo'] + pd.offsets.MonthEnd(0)
+    df['Date_Cod'] = df['Periodo'] + pd.offsets.MonthEnd(0)
     return df
 
 
