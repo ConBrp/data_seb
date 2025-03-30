@@ -131,7 +131,7 @@ def get_act_cap(df: pd.DataFrame, us: bool = False) -> pd.DataFrame:
     :param us: Si agregar 'us' al final de las columnas del DataFrame o no / If True, append 'us' to the DataFrame column names.
     :return: DataFrame 'Actualizador', 'Capitalizador' / DataFrame 'Actualizador', 'Capitalizador'.
     """
-    infla_column = 'InflaMensualUS' if us else 'InflaMensual'
+    infla_column = 'InflaMensual_US' if us else 'InflaMensual'
     df['CPI'] = df['CPI'] / (1 + df[infla_column])
     df['CPI'] = df['CPI'] / df['CPI'].iloc[0]
 

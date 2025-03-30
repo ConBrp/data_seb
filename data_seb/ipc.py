@@ -78,7 +78,7 @@ def get_ipc_indec() -> pd.DataFrame:
         ['Periodo', 'Indice_IPC', 'v_m_IPC', 'v_i_a_IPC']].copy().reset_index(drop=True)
     nacional = nacional.apply(pd.to_numeric, errors='coerce')
     nacional['InflaMensual'] = nacional['Indice_IPC'].pct_change() * 100
-    nacional["Date"] = pd.to_datetime(nacional['Periodo'], format='%Y%m').dt.strftime('%m-%Y')
+    nacional['Date_Cod'] = pd.to_datetime(nacional['Periodo'], format='%Y%m').dt.strftime('%m-%Y')
     nacional = nacional[['Indice_IPC', 'v_m_IPC', 'v_i_a_IPC', 'InflaMensual', 'Date']].copy()
     nacional.columns = ['IPC', 'VarMoM', 'VarYoY', 'InflaMensual', 'Date']
     return nacional
@@ -113,7 +113,7 @@ def get_div_ipc(tipo: int = 1) -> pd.DataFrame:
             print('Error en get_div_IPC(tipo: int = 1)')
 
     nacional['Indice_IPC'] = pd.to_numeric(nacional['Indice_IPC'], errors='coerce')
-    nacional = cod.get_date_ipc(nacional)
+    nacional = cod.get_date_ipc(nacional) # TODO, puede ser que se haga más fácil y borrar la función.
     return nacional[['Codigo', 'Descripcion', 'Indice_IPC', 'Date']].copy()
 
 
