@@ -16,7 +16,7 @@ URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.
 URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias'
 
 
-def get_file_bcra(sheet_name: str) -> pd.DataFrame:
+def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataFrame|None:
     """
     Devuelve un DataFrame con los datos de la hoja seleccionada del archivo series.xlsm del BCRA.
 
@@ -25,6 +25,12 @@ def get_file_bcra(sheet_name: str) -> pd.DataFrame:
     :param sheet_name: Nombre de la hoja a devolver / Name of the sheet to retrieve.
     :return: DataFrame con datos de la hoja seleccionada / DataFrame with data from the selected sheet.
     """
+    if download_file:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        response = requests.get(URL_BCRA, verify=False)
+        with open('series.xlsm', 'wb') as archivo:
+            archivo.write(response.content)
+        return
     return pd.read_excel(URL_BCRA, header=[0, 1, 2, 3, 4, 5, 6, 7, 8], sheet_name=sheet_name)
 
 def get_file_tc_oficial() -> pd.DataFrame:
@@ -100,7 +106,7 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
         case _:
             return pd.DataFrame()
 
-def get_principales_variables() -> pd.DataFrame:
+def get_principales_variables() -> None:
     """
     Devuelve un DataFrame con las variables principales accesibles mediante la API del BCRA y sus códigos.
 
@@ -110,7 +116,7 @@ def get_principales_variables() -> pd.DataFrame:
     """
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     response = requests.get(URL_API_MON, verify=False)
-    return pd.DataFrame(response.json()['results'])
+    return pd.DataFrame(response.json()['results']).to_excel('Principales_variables.xlsx')
 
 def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     """
@@ -262,6 +268,36 @@ def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         return cod.get_date(df)[cod.COLS + ['LEFI', 'LEFI_Flujo']].dropna()
     else:
         return df.dropna()
+
+def get_lebacs(date_cod: bool = False, api: bool = True):
+    """
+    Saldo de LEBAC y NOBAC en Pesos, LEGAR y LEMIN  (en millones de $)
+    :param date_cod:
+    :param api:
+    :return:
+    """
+    return get_from_api(156, 'LEBACs')
+
+def get_leliqs() -> pd.DataFrame:
+    """
+    Saldo de LELIQ y NOTALIQ (en millones de $)
+    :return:
+    """
+    return get_from_api(155, 'LELIQs')
+
+def get_repo():
+    """
+    Pases activos
+    :return:
+    """
+    return get_from_api(154, 'REPOs')
+
+def get_reverse_repo():
+    """
+    Pases pasivos
+    :return:
+    """
+    return get_from_api(152, 'REVERSE_REPO')
 
 def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
@@ -498,6 +534,13 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
 def get_reference_rates() -> pd.DataFrame:
     return get_series_api([(135, 'TAMAR'), (138, 'BADLAR'), (141, 'TM20')])
 
+def get_leliqs_rates() -> pd.DataFrame:
+    """
+    Tasas de interés de LEBAC en Pesos / LELIQ de 1 mes, TNA (en %)
+    :return:
+    """
+    return get_from_api(166, 'leliq_rate')
+
 def get_itcrm(date_cod: bool = False, monthly: bool = False):
     """
     Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
@@ -517,6 +560,10 @@ def get_itcrm(date_cod: bool = False, monthly: bool = False):
             return cod.get_date(get_file_itcrm('ITCRM y bilaterales'))
         return get_file_itcrm('ITCRM y bilaterales').set_index('Fecha')
 
+# Tools. It can be OOP one day.
+
+def get_annual_variations(df: pd.DataFrame) -> pd.DataFrame:
+    return df.resample('YE').last().pct_change()
 
 
 def main() -> None:
