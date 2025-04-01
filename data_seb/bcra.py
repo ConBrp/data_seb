@@ -27,7 +27,6 @@ def get_file_bcra(sheet_name: str) -> pd.DataFrame:
     """
     return pd.read_excel(URL_BCRA, header=[0, 1, 2, 3, 4, 5, 6, 7, 8], sheet_name=sheet_name)
 
-
 def get_file_tc_oficial() -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos del tipo de cambio oficial (A3500) del archivo com3500.xls del BCRA.
@@ -41,7 +40,6 @@ def get_file_tc_oficial() -> pd.DataFrame:
     df.index = pd.to_datetime(df['Fecha'])
     return df
 
-
 def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
@@ -54,66 +52,6 @@ def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
     df = pd.read_excel(URL_BCRA_TCRM, sheet_name=sheet_name, header=[1]).dropna().rename(columns={'Período': 'Fecha'})
     df['Fecha'] = pd.to_datetime(df['Fecha'])
     return df
-
-
-def get_principales_variables() -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con las variables principales accesibles mediante la API del BCRA y sus códigos.
-
-    Returns a DataFrame with the main variables accessible via the BCRA API and their codes.
-
-    :return: DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor' / DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor'.
-    """
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    response = requests.get(URL_API_MON, verify=False)
-    return pd.DataFrame(response.json()['results'])
-
-
-def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos históricos de una variable específica desde la API del BCRA.
-
-    Returns a DataFrame with historical data for a specific variable from the BCRA API.
-
-    :param idvariable: ID de la variable a obtener / ID of the variable to retrieve.
-    :param nombre: Nombre a asignar a la columna de la variable en el DataFrame / Name to assign to the variable column in the DataFrame.
-    :return: DataFrame con los datos de la variable, indexado por fecha / DataFrame with the variable data, indexed by date.
-    """
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    response = requests.get(f'{URL_API_MON}/{idvariable}?limit=3000', verify=False)
-    df = pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)
-    while response.json()['results']:
-        desde = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset(3000)
-        hasta = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset()
-        response = requests.get(f'{URL_API_MON}/{idvariable}?desde={desde}&hasta={hasta}&limit=3000', verify=False)
-        if response.json()['results']:
-            df = pd.concat(
-                [df,
-                 pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
-    df.index = pd.to_datetime(df.index)
-    df.index.name = 'Fecha'
-    df.columns = [nombre]
-    return df.sort_index()
-
-
-def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con múltiples variables desde la API del BCRA usando solicitudes concurrentes.
-
-    Returns a DataFrame with multiple variables from the BCRA API using concurrent requests.
-
-    :param arguments: Lista de tuplas con (idvariable, nombre) para cada variable a obtener / List of tuples with (idvariable, nombre) for each variable to retrieve.
-    :return: DataFrame con columnas para cada variable y una columna 'Fecha' / DataFrame with columns for each variable and a 'Fecha' column.
-    """
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        idvariable = [arg[0] for arg in arguments]
-        nombre = [arg[1] for arg in arguments]
-        results = executor.map(get_from_api, idvariable, nombre)
-    df = pd.concat(list(results), axis='columns')
-    if date:
-        df['Fecha'] = df.index
-    return df
-
 
 def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.DataFrame:
     """
@@ -162,8 +100,63 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
         case _:
             return pd.DataFrame()
 
+def get_principales_variables() -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con las variables principales accesibles mediante la API del BCRA y sus códigos.
 
-def get_plazo_fijos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+    Returns a DataFrame with the main variables accessible via the BCRA API and their codes.
+
+    :return: DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor' / DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor'.
+    """
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    response = requests.get(URL_API_MON, verify=False)
+    return pd.DataFrame(response.json()['results'])
+
+def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con datos históricos de una variable específica desde la API del BCRA.
+
+    Returns a DataFrame with historical data for a specific variable from the BCRA API.
+
+    :param idvariable: ID de la variable a obtener / ID of the variable to retrieve.
+    :param nombre: Nombre a asignar a la columna de la variable en el DataFrame / Name to assign to the variable column in the DataFrame.
+    :return: DataFrame con los datos de la variable, indexado por fecha / DataFrame with the variable data, indexed by date.
+    """
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    response = requests.get(f'{URL_API_MON}/{idvariable}?limit=3000', verify=False)
+    df = pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)
+    while response.json()['results']:
+        desde = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset(3000)
+        hasta = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset()
+        response = requests.get(f'{URL_API_MON}/{idvariable}?desde={desde}&hasta={hasta}&limit=3000', verify=False)
+        if response.json()['results']:
+            df = pd.concat(
+                [df,
+                 pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
+    df.index = pd.to_datetime(df.index)
+    df.index.name = 'Fecha'
+    df.columns = [nombre]
+    return df.sort_index()
+
+def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con múltiples variables desde la API del BCRA usando solicitudes concurrentes.
+
+    Returns a DataFrame with multiple variables from the BCRA API using concurrent requests.
+
+    :param arguments: Lista de tuplas con (idvariable, nombre) para cada variable a obtener / List of tuples with (idvariable, nombre) for each variable to retrieve.
+    :return: DataFrame con columnas para cada variable y una columna 'Fecha' / DataFrame with columns for each variable and a 'Fecha' column.
+    """
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        idvariable = [arg[0] for arg in arguments]
+        nombre = [arg[1] for arg in arguments]
+        results = executor.map(get_from_api, idvariable, nombre)
+    df = pd.concat(list(results), axis='columns')
+    if date:
+        df['Fecha'] = df.index
+    return df
+
+def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de los depósitos a plazo fijo.
 
@@ -190,8 +183,10 @@ def get_plazo_fijos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         return cod.get_date(df)
     return df
 
+def get_current_account_bcra() -> pd.DataFrame:
+    return get_from_api(70, 'CA_BCRA')
 
-def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False,
+def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
                        only_BMT: bool = False) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de 'BMT', 'CM', 'df', 'DPB', 'CCBCRA', 'CC', 'BM', 'DT'.
@@ -242,7 +237,6 @@ def get_base_monetaria(date_cod: bool = False, api: bool = True, q: bool = False
         return cod.get_date(df)[cod.COLS + columns].copy().dropna().sort_index()
     return df.dropna()
 
-
 def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios del stock de LEFI y su flujo (LEFI_Flujo).
@@ -269,8 +263,7 @@ def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     else:
         return df.dropna()
 
-
-def get_instrumentos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de los instrumentos monetarios del BCRA.
 
@@ -297,8 +290,7 @@ def get_instrumentos(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
                                             'LEBACsD_LEVID_BOPREAL', 'NOCOMs']]
     return df
 
-
-def get_dep_gob_pesos(date_cod: bool = False) -> pd.DataFrame:
+def get_government_deposits(date_cod: bool = False) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de los depósitos del gobierno en pesos del BCRA.
 
@@ -314,8 +306,10 @@ def get_dep_gob_pesos(date_cod: bool = False) -> pd.DataFrame:
     else:
         return df.dropna()
 
+def get_accounting_exchange_rate() -> pd.DataFrame:
+    return get_from_api(84, 'A_Exchange_Rate')
 
-def get_tc_oficial(date_cod: bool = False, api: bool = True, mensual: bool = False) -> pd.DataFrame:
+def get_official_exchange_rate(date_cod: bool = False, api: bool = True, mensual: bool = False) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los valores del tipo de cambio oficial (A3500) del BCRA.
 
@@ -328,9 +322,9 @@ def get_tc_oficial(date_cod: bool = False, api: bool = True, mensual: bool = Fal
     """
     if api:
         if mensual:
-            df = get_from_api(5, 'TC_A3500').resample('MS').mean()
+            df = get_from_api(5, 'A3500_ER').resample('MS').mean()
         else:
-            df = get_from_api(5, 'TC_A3500')
+            df = get_from_api(5, 'A3500_ER')
     else:
         if mensual:
             df = get_file_tc_oficial().resample('MS').mean()
@@ -338,9 +332,11 @@ def get_tc_oficial(date_cod: bool = False, api: bool = True, mensual: bool = Fal
             df = get_file_tc_oficial()
     if date_cod:
         df['Fecha'] = df.index
-        return cod.get_date(df)[cod.COLS + ['TC_A3500']]
+        return cod.get_date(df)[cod.COLS + ['A3500_ER']]
     return df.dropna()
 
+def get_retail_exchange_rate() -> pd.DataFrame:
+    return get_from_api(4, 'R_exchange_rate')
 
 def get_cer() -> pd.DataFrame:
     """
@@ -352,7 +348,6 @@ def get_cer() -> pd.DataFrame:
     """
     return get_from_api(30, 'CER')
 
-
 def get_uva() -> pd.DataFrame:
     """
     Devuelve un DataFrame con la serie del coeficiente CER indexada por fecha del BCRA.
@@ -363,8 +358,7 @@ def get_uva() -> pd.DataFrame:
     """
     return get_from_api(31, 'UVA')
 
-
-def get_reservas(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con la serie de las reservas internacionales brutas del BCRA, indexado por fecha.
 
@@ -388,8 +382,7 @@ def get_reservas(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         return cod.get_date(df)[cod.COLS + ["RRII"]]
     return df
 
-
-def get_creditos(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
+def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de préstamos del BCRA.
 
@@ -411,8 +404,7 @@ def get_creditos(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
     else:
         return df
 
-
-def get_tasas(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.DataFrame:
+def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de las tasas de interés para los plazos fijos de 30-44 días.
 
@@ -503,8 +495,7 @@ def get_tasas(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
         return cod.get_date(df)
     return df
 
-
-def get_tasas_referencia() -> pd.DataFrame:
+def get_reference_rates() -> pd.DataFrame:
     return get_series_api([(135, 'TAMAR'), (138, 'BADLAR'), (141, 'TM20')])
 
 def get_itcrm(date_cod: bool = False, monthly: bool = False):
@@ -525,6 +516,7 @@ def get_itcrm(date_cod: bool = False, monthly: bool = False):
         if date_cod:
             return cod.get_date(get_file_itcrm('ITCRM y bilaterales'))
         return get_file_itcrm('ITCRM y bilaterales').set_index('Fecha')
+
 
 
 def main() -> None:
