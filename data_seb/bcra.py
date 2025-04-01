@@ -369,16 +369,17 @@ def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.D
     :return: DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año'.
     """
     if api:
-        df = get_series_api([(1, 'RRII')])
+        df = get_from_api(1, 'RRII')
     else:
         df = get_file_bcra('RESERVAS')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df[df['17'] == 'D'][['1', '3']].copy()
-        df.columns = ['Fecha', 'RRI']
+        df.columns = ['Fecha', 'RRII']
         df['Fecha'] = pd.to_datetime(df['Fecha'])
-        df.index = df['Fecha']
+        df = df.set_index('Fecha')
 
     if date_cod:
+        df['Fecha'] = df.index
         return cod.get_date(df)[cod.COLS + ["RRII"]]
     return df
 
