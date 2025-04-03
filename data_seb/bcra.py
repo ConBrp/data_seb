@@ -140,7 +140,7 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
                 [df,
                  pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
     df.index = pd.to_datetime(df.index)
-    df.index.name = 'Fecha'
+    df.index.name = 'Date'
     df.columns = [nombre]
     return df.sort_index()
 
