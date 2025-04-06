@@ -140,7 +140,6 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
                 [df,
                  pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
     df.index = pd.to_datetime(df.index)
-    df.index.name = 'Date'
     df.columns = [nombre]
     return df.sort_index()
 
@@ -243,6 +242,16 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
         df['Date'] = df.index
         return cod.get_date(df)[cod.COLS + columns].dropna().sort_index().copy()
     return df.dropna()
+
+def  get_m2(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+    if api:
+        if date_cod:
+            df = get_from_api(109, 'M2')
+            df['Date'] = df.index
+            return cod.get_date(df)
+        return get_from_api(109, 'M2')
+    else:
+        return pd.DataFrame()
 
 def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     """
