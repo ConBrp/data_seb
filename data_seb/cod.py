@@ -3,7 +3,7 @@ import pandas as pd
 COLS = ['Date', 'Date_Cod', 'Dia']
 
 
-def get_date(df: pd.DataFrame, date: str = 'Fecha', day: bool = True) -> pd.DataFrame:
+def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con código Date.
 
