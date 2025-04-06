@@ -1,6 +1,6 @@
 import pandas as pd
 
-COLS = ['Fecha', 'Date_Cod', 'Dia']
+COLS = ['Date', 'Date_Cod', 'Dia']
 
 
 def get_date(df: pd.DataFrame, date: str = 'Fecha', day: bool = True) -> pd.DataFrame:

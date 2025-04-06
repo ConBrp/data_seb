@@ -193,7 +193,7 @@ def get_current_account_bcra() -> pd.DataFrame:
     return get_from_api(70, 'CA_BCRA')
 
 def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
-                       only_BMT: bool = False) -> pd.DataFrame:
+                       only_bmt: bool = False) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de 'BMT', 'CM', 'df', 'DPB', 'CCBCRA', 'CC', 'BM', 'DT'.
 
@@ -212,13 +212,13 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
     :param date_cod: Define si agregan columns para código de fecha 'Date' / If True, add columns for date code 'Date'.
     :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
     :param q: Si es True, incluye cuasi-monedas ('QM') y 'BMTQ' / If True, include quasi-money ('QM') and 'BMTQ'.
-    :param only_BMT: Si es True, devuelve solo la base monetaria total ('BMT') / If True, return only the total monetary base ('BMT').
+    :param only_bmt: Si es True, devuelve solo la base monetaria total ('BMT') / If True, return only the total monetary base ('BMT').
     :return: DataFrame 'Fecha', 'Date', 'Dia', 'BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT' / DataFrame 'Fecha', 'Date', 'Dia', 'BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT'.
     """
     columns = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT']
 
     if api:
-        if only_BMT:
+        if only_bmt:
             df = get_series_api([(15, 'BMT')])
             columns = ['BMT']
         else:
@@ -237,10 +237,11 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
         df.columns = ['Fecha', 'DPP', 'DPB', 'CC', 'CCBCRA', 'BMT', 'QM', 'BMTQ']
         df['CM'] = df['DPP'] + df['DPB'] + df['CC']
         df.index = df['Fecha']
-    if not only_BMT:
+    if not only_bmt:
         df['DT'] = df['DPP'] + df['DPB']
     if date_cod:
-        return cod.get_date(df)[cod.COLS + columns].copy().dropna().sort_index()
+        df['Date'] = df.index
+        return cod.get_date(df)[cod.COLS + columns].dropna().sort_index().copy()
     return df.dropna()
 
 def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
