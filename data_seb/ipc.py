@@ -37,13 +37,14 @@ def get_ipc(file_infla_empalmada: str) -> pd.DataFrame:
     :return: DataFrame 'Fecha', 'Date', 'IPC', 'InflaMensual', 'CantD', 'Mes', 'Año' / DataFrame 'Fecha', 'Date', 'IPC', 'InflaMensual', 'CantD', 'Mes', 'Año'.
     """
     ipc = pd.read_excel(file_infla_empalmada)
-    ipc['Fecha'] = pd.to_datetime(ipc['Fecha'], format='%Y-%m-%d')
-    ipc = ipc.set_index('Fecha', drop=False)
+    ipc['Date'] = pd.to_datetime(ipc['Fecha'], format='%Y-%m-%d')
+    ipc = ipc.set_index('Date', drop=False)
     ipc['InflaMensual'] = ipc['IPC'].pct_change()
     ipc = cod.get_date(ipc, day=False)
     ipc['CantD'] = ipc.apply(lambda row: calendar.monthrange(row['Año'], row['Mes'])[1], axis=1)
+    # Without the day because is always the last day of the month.
     return ipc[cod.COLS[:-1] + ['IPC', 'InflaMensual',
-                                'CantD']].copy()  # TODO ver si hace falta la columna 'Fecha', si ya está en el índice.
+                                'CantD']].copy()
 
 
 def get_act_cap(df: pd.DataFrame) -> pd.DataFrame:
