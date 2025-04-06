@@ -3,22 +3,22 @@ import calendar
 
 from . import ipc
 
-URL_OYD = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_oferta_demanda_12_24.xls'  # Ojo que el link del pbi cambia con el trimestre.
 URL_EMAE = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_emae_mensual_base2004.xls'
 URL_EMAE_A = 'https://www.indec.gob.ar/ftp/cuadros/economia/sh_emae_actividad_base2004.xls'
 
 
-def get_file_oyd(sheet_name: str, online: bool = True) -> pd.DataFrame:
+def get_file_oyd(url: str, sheet_name: str, online: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos de la hoja seleccionada del archivo de oferta y demanda del INDEC.
 
     Returns a DataFrame with data from the selected sheet of the INDEC's supply and demand file.
 
+    :param url:
     :param sheet_name: Nombre de la hoja a devolver / Name of the sheet to retrieve.
     :param online: Define si se utiliza la URL en línea o un archivo local / If True, use the online URL; otherwise, use a local file.
     :return: DataFrame con datos de la hoja seleccionada / DataFrame with data from the selected sheet.
     """
-    return pd.read_excel(URL_OYD, decimal=',', sheet_name=sheet_name)
+    return pd.read_excel(url, decimal=',', sheet_name=sheet_name)
 
 
 def get_emae() -> pd.DataFrame:
@@ -85,24 +85,26 @@ def limpiar_serie_pbi(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_pbi_pcorrientes(file_infla_empalmada: str, sin_estimar: bool = True) -> pd.DataFrame:
+def get_pbi_pcorrientes(url: str, file_infla_empalmada: str = '', sin_estimar: bool = True) -> pd.DataFrame:
     """
     Devuelve un DataFrame con los PBI a precios corrientes trimestrales indizado con la fecha.
 
     Returns a DataFrame with quarterly PBI at current prices indexed by date.
 
+    :param url:
     :param file_infla_empalmada: Ruta al archivo IPC2000.xlsx para estimaciones / Path to the IPC2000.xlsx file for estimations.
     :param sin_estimar: Si es True, no estima los trimestres faltantes / If True, do not estimate missing quarters.
     :return: DataFrame 'PBI' / DataFrame 'PBI'.
     """
-    pib = pd.DataFrame(get_file_oyd('cuadro 8').loc[5])
+    pib = pd.DataFrame(
+        get_file_oyd(url, 'cuadro 8').loc[5])
     pib = limpiar_serie_pbi(pib)
-    ultimo_pib = pib.iloc[-1]
-    ultimo_ipc = ipc.get_ipc(file_infla_empalmada).iloc[-1]
     if sin_estimar:
         return pib
     else:
         # Se estima el PIB para los trimestres faltantes.
+        ultimo_pib = pib.iloc[-1]
+        ultimo_ipc = ipc.get_ipc(file_infla_empalmada).iloc[-1]
         estimaciones = []
         fecha_actual = ultimo_pib.name
         fecha_final = ultimo_ipc.name
@@ -146,7 +148,8 @@ def get_pbi_real() -> pd.DataFrame:
 
     :return: DataFrame 'PBI' / DataFrame 'PBI'.
     """
-    df = pd.DataFrame(get_file_oyd('cuadro 1').loc[5])
+    df = pd.DataFrame(
+        get_file_oyd('https://www.indec.gob.ar/ftp/cuadros/economia/sh_oferta_demanda_12_24.xls', 'cuadro 1').loc[5])
     return limpiar_serie_pbi(df)
 
 
