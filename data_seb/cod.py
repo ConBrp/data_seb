@@ -16,8 +16,8 @@ def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataF
     """
     if day:
         df['Dia'] = df[date].dt.day
-    if pd.api.types.is_datetime64_dtype(df['Fecha']):
-        df['Date_Cod'] = df['Fecha'].dt.strftime('%m-%Y')
+    if pd.api.types.is_datetime64_dtype(df[date]):
+        df['Date_Cod'] = df[date].dt.strftime('%m-%Y')
     else:
         df['Date'] = df['Mes'].astype(str) + '-' + df['Año'].astype(str)
         df['Date_Cod'] = pd.to_datetime(df['Date'], format='%m-%Y').dt.strftime('%m-%Y')
