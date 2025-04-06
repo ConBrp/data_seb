@@ -157,8 +157,9 @@ def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
         nombre = [arg[1] for arg in arguments]
         results = executor.map(get_from_api, idvariable, nombre)
     df = pd.concat(list(results), axis='columns')
+    df.index.name = None
     if date:
-        df['Fecha'] = df.index
+        df['Date'] = df.index
     return df
 
 def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
@@ -218,7 +219,7 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
 
     if api:
         if only_bmt:
-            df = get_series_api([(15, 'BMT')])
+            df = get_from_api(15, 'BMT')
             columns = ['BMT']
         else:
             if q:
