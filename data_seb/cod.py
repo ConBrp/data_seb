@@ -1,6 +1,6 @@
 import pandas as pd
 
-COLS = ['Date', 'Date_Cod', 'Dia']
+COLS = ['Date', 'Date_Cod', 'day']
 
 
 def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataFrame:
@@ -15,13 +15,13 @@ def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataF
     :return: DataFrame 'Mes', 'Año', 'Date' / DataFrame 'Mes', 'Año', 'Date'.
     """
     if day:
-        df['Dia'] = df[date].dt.day
+        df['day'] = df[date].dt.day
     if pd.api.types.is_datetime64_dtype(df[date]):
         df['Date_Cod'] = df[date].dt.strftime('%m-%Y')
     else:
-        df['Date'] = df['Mes'].astype(str) + '-' + df['Año'].astype(str)
+        df['Date'] = df['month'].astype(str) + '-' + df['year'].astype(str)
         df['Date_Cod'] = pd.to_datetime(df['Date'], format='%m-%Y').dt.strftime('%m-%Y')
-    df['Mes'] = df[date].dt.month
+    df['month'] = df[date].dt.month
     df['year'] = df[date].dt.year
     return df
 
@@ -36,7 +36,7 @@ def get_date_ipc(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame 'Mes', 'Año', 'Date' / DataFrame 'Mes', 'Año', 'Date'.
     """
     df['Periodo'] = pd.to_datetime(df['Periodo'], format='%Y%m')
-    df['Mes'] = df['Periodo'].dt.month
+    df['month'] = df['Periodo'].dt.month
     df['Año'] = df['Periodo'].dt.year
     df['Date'] = df['Periodo'] + pd.offsets.MonthEnd(0)
     return df

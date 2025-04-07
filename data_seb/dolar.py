@@ -15,12 +15,12 @@ def get_blue(cod_date: bool = False, witch: int = 1) -> pd.DataFrame:
     match witch:
         case 0:
             if cod_date:
-                df['Fecha'] = df.index
+                df['Date'] = df.index
                 return cod.get_date(df)
             return df
         case 1:
             if cod_date:
-                df['Fecha'] = df.index
+                df['Date'] = df.index
                 return cod.get_date(df)[cod.COLS + ['Seller']].copy()
             return df[['Seller']].copy()
         case _:

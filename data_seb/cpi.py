@@ -113,11 +113,11 @@ def get_cpi(file_cpi1913: str = '', api: bool = False, api_key: str = '', witch:
             return cpi_us_dfs[series_ids[0]]
         return cpi_us_dfs
     else:
-        cpi = pd.read_excel(file_cpi1913, parse_dates=['Fecha'])[['Fecha', 'CPI']].copy()
+        cpi = pd.read_excel(file_cpi1913, parse_dates=['Date'])[['Date', 'CPI']].copy()
         # cpi['Fecha'] = pd.to_datetime(cpi['Fecha'], format='%Y-%m-%d')
         cpi['InflaMensual'] = cpi['CPI'].pct_change()
         cpi = cod.get_date(cpi, day=False)
-        cpi['CantD'] = cpi.apply(lambda row: calendar.monthrange(row['Año'], row['Mes'])[1], axis=1)
+        cpi['CantD'] = cpi.apply(lambda row: calendar.monthrange(row['year'], row['month'])[1], axis=1)
         # TODO set index date.
         return cpi[cod.COLS[:-1] + ['CPI', 'InflaMensual', 'CantD']].copy()
 
@@ -138,7 +138,7 @@ def get_act_cap(df: pd.DataFrame, us: bool = False) -> pd.DataFrame:
     actualizador_column = 'ActualizadorUS' if us else 'Actualizador'
     capitalizador_column = 'CapitalizadorUS' if us else 'Capitalizador'
 
-    df[actualizador_column] = df['CPI'] * (1 + df[infla_column]) ** (df['Dia'] / df['CantD'])
+    df[actualizador_column] = df['CPI'] * (1 + df[infla_column]) ** (df['day'] / df['CantD'])
     df[capitalizador_column] = 1 / df[actualizador_column]
     df[capitalizador_column] = df[capitalizador_column] / df[capitalizador_column].iloc[-1]
 
