@@ -22,7 +22,7 @@ def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataF
         df['Date'] = df['Mes'].astype(str) + '-' + df['Año'].astype(str)
         df['Date_Cod'] = pd.to_datetime(df['Date'], format='%m-%Y').dt.strftime('%m-%Y')
     df['Mes'] = df[date].dt.month
-    df['Año'] = df[date].dt.year
+    df['year'] = df[date].dt.year
     return df
 
 
