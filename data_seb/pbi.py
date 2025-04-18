@@ -119,9 +119,8 @@ def get_pbi_pcorrientes(url: str, file_infla_empalmada: str = '', sin_estimar: b
                 fecha_proximo_trimestre = fecha_final
 
             # Se calcula el IPC relativo al trimestre actual.
-            ipc_actual = ipc.get_ipc(creds.ipc_script['FILE_INFLA_EMPALMADA']).loc[fecha_actual, 'IPC']
-            ipc_proximo_trimestre = ipc.get_ipc(
-                creds.ipc_script['FILE_INFLA_EMPALMADA']).loc[fecha_proximo_trimestre, 'IPC']
+            ipc_actual = ipc.get_ipc(file_infla_empalmada).loc[fecha_actual, 'IPC']
+            ipc_proximo_trimestre = ipc.get_ipc(file_infla_empalmada).loc[fecha_proximo_trimestre, 'IPC']
 
             # Se estima el PBI para el próximo trimestre.
             pbi_estimado = ultimo_pib['PBI'] * ipc_proximo_trimestre / ipc_actual
