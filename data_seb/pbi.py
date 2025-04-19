@@ -103,7 +103,7 @@ def get_pbi_pcorrientes(url: str, file_infla_empalmada: str = '', sin_estimar: b
         return pib
     else:
         # Se estima el PIB para los trimestres faltantes.
-        ultimo_pib = pib.iloc[-1]
+        ultimo_pib = pib.iloc[-1].copy()
         ultimo_ipc = ipc.get_ipc(file_infla_empalmada).iloc[-1]
         estimaciones = []
         fecha_actual = ultimo_pib.name
