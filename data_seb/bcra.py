@@ -546,6 +546,11 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
 def get_reference_rates() -> pd.DataFrame:
     return get_series_api([(135, 'TAMAR'), (138, 'BADLAR'), (141, 'TM20')])
 
+def get_tamar(kind: int = 1) -> pd.DataFrame:
+    if kind == 1:
+        return get_from_api(136, 'TAMAR_PB')
+    return pd.DataFrame()
+
 def get_leliqs_rates() -> pd.DataFrame:
     """
     Tasas de interés de LEBAC en Pesos / LELIQ de 1 mes, TNA (en %)
