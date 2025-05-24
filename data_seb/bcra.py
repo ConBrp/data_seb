@@ -582,6 +582,16 @@ def get_itcrm(date_cod: bool = False, monthly: bool = False):
 def get_annual_variations(df: pd.DataFrame) -> pd.DataFrame:
     return df.resample('YE').last().pct_change()
 
+def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
+    match kind:
+        case 1:
+            return get_file_bcra_plus(4, [539, 540]).rename(columns={539: "Total_Total", 540: "Total_efectivo"})
+        case 2:
+            return get_file_bcra_plus(4, [681, 682]).rename(columns={681: "Publico_Total", 682: "Publico_efectivo"})
+        case 3:
+            return get_file_bcra_plus(4, [821, 822]).rename(columns={821: "Privado_Total", 822: "Privado_efectivo"})
+        case _:
+            return pd.DataFrame()
 
 def main() -> None:
     """
