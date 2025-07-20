@@ -593,8 +593,8 @@ def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
         case _:
             return pd.DataFrame()
 
-def get_interbank_market_data() -> None:
-    df = get_series_api([(146, 'Tasa Call Privado'), (147, 'Monto Call Privado'), (148, 'Tasa Call Total'), (149, 'Monto Call Total'), (150, 'Tasa Pases'), (150, 'Tasa Montos')])
+def get_interbank_market_data() -> pd.DataFrame:
+    df = get_series_api([(146, 'Tasa Call Privado'), (147, 'Monto Call Privado'), (148, 'Tasa Call Total'), (149, 'Monto Call Total'), (150, 'Tasa Pases'), (151, 'Monto Pases')])
     return df
 
 
