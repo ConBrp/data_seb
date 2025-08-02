@@ -84,25 +84,25 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
         df = pd.read_csv(link, sep=';', names=['Cat', 'Fecha', 'Monto'],
                          dtype={'Cat': str, 'Fecha': str, 'Monto': float}).dropna()
         df['Cat'] = pd.to_numeric(df.loc[:, 'Cat'])
-        df['Fecha'] = pd.to_datetime(df.loc[:, 'Fecha'], format='%d/%m/%Y')
+        df['Date'] = pd.to_datetime(df.loc[:, 'Fecha'], format='%d/%m/%Y')
         df['Monto'] = pd.to_numeric(df.loc[:, 'Monto'])
-        data = df.pivot_table(columns='Cat', values='Monto', index='Fecha')
+        data = df.pivot_table(columns='Cat', values='Monto', index='Date')
         data.columns.name = None
         data.index.name = None
         if dividir:
             data = data / 1000
-        data['Fecha'] = data.index
+        data['Date'] = data.index
         return data
 
     match file:
         case 1:
-            return download(URL_BCRA_BAL, div)[['Fecha'] + serie].copy()
+            return download(URL_BCRA_BAL, div)[['Date'] + serie].copy()
         case 2:
-            return download(URL_BCRA_RES, div)[['Fecha'] + serie].copy()
+            return download(URL_BCRA_RES, div)[['Date'] + serie].copy()
         case 3:
-            return download(URL_BCRA_ACT, div)[['Fecha'] + serie].copy()
+            return download(URL_BCRA_ACT, div)[['Date'] + serie].copy()
         case 4:
-            return download(URL_BCRA_PAS, div)[['Fecha'] + serie].copy()
+            return download(URL_BCRA_PAS, div)[['Date'] + serie].copy()
         case _:
             return pd.DataFrame()
 
@@ -141,6 +141,7 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
                  pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
     df.index = pd.to_datetime(df.index)
     df.columns = [nombre]
+    df.index.name = 'Date'
     return df.sort_index()
 
 def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
@@ -322,7 +323,7 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
     """
     if api:  # Los pases pasivos tienen un día menos de datos con la API.
         df = get_series_api([(42, 'Pases_Pasivos'), (154, 'Pases_Activos'), (153, 'Pases_Pasivos_FCI'), (156, 'LEBACs'),
-                             (155, 'LELIQs'), (158, 'LEBACsD_LEVID_BOPREAL'), (159, 'NOCOMs')])
+                             (155, 'LELIQs'), (158, 'LEBACsD_LEVID_BOPREAL'), (159, 'NOCOMs'), (198, 'Otros_Pases')])
     else:
         df = get_file_bcra('INSTRUMENTOS DEL BCRA')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
@@ -334,10 +335,10 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
 
     if date_cod:
         return cod.get_date(df)[cod.COLS + ['Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs',
-                                            'LEBACsD_LEVID_BOPREAL', 'NOCOMs']]
+                                            'LEBACsD_LEVID_BOPREAL', 'NOCOMs', 'Otros_Pases']]
     return df
 
-def get_government_deposits(date_cod: bool = False) -> pd.DataFrame:
+def get_government_deposits(date_cod: bool = False, kind: str = 'ARS') -> pd.DataFrame:
     """
     Devuelve un DataFrame con los datos diarios de los depósitos del gobierno en pesos del BCRA.
 
@@ -346,8 +347,16 @@ def get_government_deposits(date_cod: bool = False) -> pd.DataFrame:
     :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
     :return: DataFrame 'Fecha', 'Depositos_gob', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'Depositos_gob', 'Date', 'Dia', 'Mes', 'Año'.
     """
-    df = get_file_bcra_plus(2, [8842])
-    df = df.rename(columns={8842: 'Depositos_gob'})
+    match kind:
+        case 'ARS':
+            df = get_file_bcra_plus(2, [8842])
+            df = df.rename(columns={8842: 'Depositos_gob'})
+        case 'USD':
+            df = pd.concat([get_file_bcra_plus(2, [8843]), get_file_bcra_plus(2, [271], div=False).drop(columns='Date')], axis=1)
+            df = df.rename(columns={8843: 'Depositos_gob', 271: 'ER'})
+            df['Depositos_gob_usd'] = df['Depositos_gob'] / df['ER']
+        case _:
+            df = None
     if date_cod:
         return cod.get_date(df).dropna()
     else:
