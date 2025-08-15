@@ -1,9 +1,10 @@
 import pandas as pd
+import numpy as np
 import requests
 import urllib3
 import concurrent.futures
 
-from . import cod
+from . import cod, pbi, ipc
 
 URL_BCRA = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/series.xlsm'
 URL_BCRA_TCRM = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/ITCRMSerie.xlsx'
@@ -606,6 +607,70 @@ def get_interbank_market_data() -> pd.DataFrame:
     df = get_series_api([(146, 'Tasa Call Privado'), (147, 'Monto Call Privado'), (148, 'Tasa Call Total'), (149, 'Monto Call Total'), (150, 'Tasa Pases'), (151, 'Monto Pases')])
     return df
 
+def get_money_demand(config: dict, real: bool = True, estimado: bool = False) -> pd.DataFrame:
+    def tratar_pbi(pib: pd.DataFrame) -> pd.DataFrame:
+        pib['year'] = pib.index.year
+        pib['quarter'] = pib.index.quarter
+        pib['var'] = pib['PBI'].pct_change()
+        # TODO the monetary base it is pulled more the one time.
+        base = get_monetary_base()
+        m2 = get_m2(date_cod=True).drop(columns=['month', 'Date_Cod', 'day']).copy()
+        dinero = pd.concat([base, m2], axis='columns').dropna().copy()
+        dinero['quarter'] = dinero.index.quarter
+        pib['Code'] = pib['year'].astype(int).astype(str) + '-' + pib['quarter'].astype(int).astype(str)
+        dinero['Code'] = dinero['year'].astype(int).astype(str) + '-' + dinero['quarter'].astype(int).astype(str)
+        final = pd.merge(pib, dinero.drop(columns=['year', 'quarter']).copy(), on='Code', how='inner').replace({np.nan: 0})
+        final['Cant_D'] = final['Date'].apply(pbi.days_in_quarter)
+        final['Dia'] = final['Date'].apply(pbi.days_in_quarter, args=(False,))
+        final['PBI_Ajustado'] = final['PBI'] / (1 + final['var'])
+        final['PBI_Ajustado'] = final['PBI_Ajustado'] * (1 + final['var']) ** (final['Dia'] / final['Cant_D'])
+        final['Demanda_BMT'] = final['BMT'] / final['PBI'] *100
+        final['Demanda_CM'] = final['CM'] / final['PBI'] *100
+        final['Demanda_DPP'] = final['DPP'] / final['PBI'] *100
+        final['Demanda_DPB'] = final['DPB'] / final['PBI'] *100
+        final['Demanda_CCBCRA'] = final['CCBCRA'] / final['PBI'] *100
+        final['Demanda_DT'] = final['DT'] / final['PBI'] *100
+        final['Demanda_M2'] = final['M2'] / final['PBI'] *100
+
+        final['Demanda_BMT_A'] = final['BMT'] / final['PBI_Ajustado'] *100
+        final['Demanda_CM_A'] = final['CM'] / final['PBI_Ajustado'] *100
+        final['Demanda_DPP_A'] = final['DPP'] / final['PBI_Ajustado'] *100
+        final['Demanda_DPB_A'] = final['DPB'] / final['PBI_Ajustado'] *100
+        final['Demanda_CCBCRA_A'] = final['CCBCRA'] / final['PBI_Ajustado'] *100
+        final['Demanda_DT_A'] = final['DT'] / final['PBI_Ajustado'] *100
+        final['Demanda_M2_A'] = final["M2"] / final['PBI_Ajustado'] *100
+
+        return final
+
+    if real:
+        dd = get_monetary_base(date_cod=True)
+        ipc_index = ipc.get_ipc(config.get('ipc_script').get('FILE_INFLA_EMPALMADA')).drop(columns='Date')
+        ddreal = pd.merge(dd, ipc_index, on='Date_Cod')
+        m2 = get_m2()[['M2']].copy()
+        m2['Date'] = m2.index
+        ddreal = pd.merge(ddreal, m2, on='Date')
+        ddreal = ipc.get_act_cap(ddreal)
+        ddreal['DPP_real'] = ddreal['DPP'] * ddreal['Capitalizador']
+        ddreal['DT_real'] = ddreal['DT'] * ddreal['Capitalizador']
+        ddreal['BMT_real'] = ddreal['BMT'] * ddreal['Capitalizador']
+        ddreal['M2_real'] = ddreal['M2'] * ddreal['Capitalizador']
+        return ddreal[['Date', 'DPP_real', 'DT_real', 'BMT_real', 'M2_real']].copy()
+    elif not estimado:
+        pib = pbi.get_pbi_pcorrientes(config.get('pbi_script').get('URL_INDEC_PBI'))
+        final = tratar_pbi(pib)
+        final.to_excel('final.xlsx', index=False)
+        return final.set_index('Date', drop=False)[
+            ['Date', 'Demanda_BMT', 'Demanda_CM', 'Demanda_DPP', 'Demanda_DPB', 'Demanda_CCBCRA', 'Demanda_DT',
+             'Demanda_M2', 'Demanda_BMT_A', 'Demanda_CM_A', 'Demanda_DPP_A', 'Demanda_DPB_A', 'Demanda_CCBCRA_A',
+             'Demanda_DT_A', 'Demanda_M2_A']].copy()
+    else:
+        pib = pbi.get_pbi_pcorrientes(config.get('pbi_script').get('URL_INDEC_PBI'), config.get('ipc_script').get('FILE_INFLA_EMPALMADA'), sin_estimar=False)
+        final = tratar_pbi(pib)
+        final.to_excel('final_E.xlsx', index=False)
+        return final.set_index('Date', drop=False)[
+            ['Date', 'Demanda_BMT', 'Demanda_CM', 'Demanda_DPP', 'Demanda_DPB', 'Demanda_CCBCRA', 'Demanda_DT',
+             'Demanda_M2', 'Demanda_BMT_A', 'Demanda_CM_A', 'Demanda_DPP_A', 'Demanda_DPB_A', 'Demanda_CCBCRA_A',
+             'Demanda_DT_A', 'Demanda_M2_A']].copy()
 
 def main() -> None:
     """
