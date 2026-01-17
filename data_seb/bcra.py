@@ -351,13 +351,17 @@ def get_government_deposits(date_cod: bool = False, kind: str = 'ARS') -> pd.Dat
     match kind:
         case 'ARS':
             df = get_file_bcra_plus(2, [8842])
-            df = df.rename(columns={8842: 'Depositos_gob'})
+            df = df.rename(columns={8842: 'Gob_Dep_ARS'})
         case 'USD':
             df = pd.concat([get_file_bcra_plus(2, [8843]), get_file_bcra_plus(2, [271], div=False).drop(columns='Date')], axis=1)
-            df = df.rename(columns={8843: 'Depositos_gob', 271: 'ER'})
-            df['Depositos_gob_usd'] = df['Depositos_gob'] / df['ER']
+            df = df.rename(columns={8843: 'Gob_Dep_USD_in_ARS', 271: 'ER'})
+            df['Gob_Dep_USD'] = df['Gob_Dep_USD_in_ARS'] / df['ER']
         case 'BOTH':
-            ...
+            df = pd.concat([get_file_bcra_plus(2, [8842]),
+                            get_file_bcra_plus(2, [8843]).drop(columns='Date'),
+                            get_file_bcra_plus(2, [271], div=False).drop(columns='Date')], axis=1)
+            df = df.rename(columns={8842: 'Gob_Dep_ARS', 8843: 'Gob_Dep_USD_in_ARS', 271: 'ER'})
+            df['Gob_Dep_USD'] = df['Gob_Dep_USD_in_ARS'] / df['ER']
         case _:
             df = None
     if date_cod:
