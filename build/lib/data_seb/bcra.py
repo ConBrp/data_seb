@@ -356,8 +356,6 @@ def get_government_deposits(date_cod: bool = False, kind: str = 'ARS') -> pd.Dat
             df = pd.concat([get_file_bcra_plus(2, [8843]), get_file_bcra_plus(2, [271], div=False).drop(columns='Date')], axis=1)
             df = df.rename(columns={8843: 'Depositos_gob', 271: 'ER'})
             df['Depositos_gob_usd'] = df['Depositos_gob'] / df['ER']
-        case 'BOTH':
-            ...
         case _:
             df = None
     if date_cod:

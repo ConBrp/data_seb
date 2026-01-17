@@ -8,6 +8,8 @@ setup(
         "pandas",
         "requests",
         "yfinance",
+        "openpyxl",
+        "xlrd",
     ],
     author="Santiago E. Bergese",
     author_email="Santiagobergese@gmail.com",
