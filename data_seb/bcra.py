@@ -323,7 +323,7 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
     :return: DataFrame 'Fecha', 'Date', 'Dia', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs', 'LEBACsD_LEVID_BOPREAL', 'NOCOMs' / DataFrame 'Fecha', 'Date', 'Dia', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs', 'LEBACsD_LEVID_BOPREAL', 'NOCOMs'.
     """
     if api:  # Los pases pasivos tienen un día menos de datos con la API.
-        df = get_series_api([(42, 'Pases_Pasivos'), (154, 'Pases_Activos'), (153, 'Pases_Pasivos_FCI'), (156, 'LEBACs'),
+        df = get_series_api([(152, 'Pases_Pasivos'), (154, 'Pases_Activos'), (153, 'Pases_Pasivos_FCI'), (156, 'LEBACs'),
                              (155, 'LELIQs'), (158, 'LEBACsD_LEVID_BOPREAL'), (159, 'NOCOMs'), (198, 'Otros_Pases')])
     else:
         df = get_file_bcra('INSTRUMENTOS DEL BCRA')
