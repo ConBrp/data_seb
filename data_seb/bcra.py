@@ -14,7 +14,7 @@ URL_BCRA_BAL = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din1_ser.
 URL_BCRA_RES = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din2_ser.txt'
 URL_BCRA_ACT = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din3_ser.txt'
 URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.txt'
-URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias'
+URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias'
 
 
 def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataFrame|None:
@@ -131,15 +131,15 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     """
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     response = requests.get(f'{URL_API_MON}/{idvariable}?limit=3000', verify=False)
-    df = pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)
-    while response.json()['results']:
+    df = pd.DataFrame(response.json().get('results')[0].get('detalle')).set_index('fecha', drop=True)
+    while response.json().get('results')[0].get('detalle'):
         desde = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset(3000)
         hasta = pd.to_datetime(df.index[-1]) - pd.offsets.DateOffset()
         response = requests.get(f'{URL_API_MON}/{idvariable}?desde={desde}&hasta={hasta}&limit=3000', verify=False)
-        if response.json()['results']:
+        if response.json().get('results')[0].get('detalle'):
             df = pd.concat(
                 [df,
-                 pd.DataFrame(response.json()['results']).drop(columns=['idVariable']).set_index('fecha', drop=True)])
+                 pd.DataFrame(response.json().get('results')[0].get('detalle')).set_index('fecha', drop=True)])
     df.index = pd.to_datetime(df.index)
     df.columns = [nombre]
     df.index.name = 'Date'

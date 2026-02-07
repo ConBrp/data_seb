@@ -1,2 +1,4 @@
 build/
 data_seb.egg-info/
+
+*.ipynb
