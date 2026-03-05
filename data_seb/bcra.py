@@ -653,8 +653,12 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False) ->
         ipc_index = ipc.get_ipc(config.get('ipc_script').get('FILE_INFLA_EMPALMADA')).drop(columns='Date')
         ddreal = pd.merge(dd, ipc_index, on='Date_Cod')
         m2 = get_m2()[['M2']].copy()
+        
+        # Reset index so 'Date' is not ambiguous (index and column)
         m2['Date'] = m2.index
+        m2 = m2.reset_index(drop=True)
         ddreal = pd.merge(ddreal, m2, on='Date')
+        
         ddreal = ipc.get_act_cap(ddreal)
         ddreal['DPP_real'] = ddreal['DPP'] * ddreal['Capitalizador']
         ddreal['DT_real'] = ddreal['DT'] * ddreal['Capitalizador']
