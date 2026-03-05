@@ -613,7 +613,7 @@ def get_interbank_market_data() -> pd.DataFrame:
     df = get_series_api([(146, 'Tasa Call Privado'), (147, 'Monto Call Privado'), (148, 'Tasa Call Total'), (149, 'Monto Call Total'), (150, 'Tasa Pases'), (151, 'Monto Pases')])
     return df
 
-def get_money_demand(config: dict, real: bool = True, estimado: bool = False) -> pd.DataFrame:
+def get_money_demand(config: dict, real: bool = True, estimado: bool = False, monthly_mean: bool = False) -> pd.DataFrame:
     def tratar_pbi(pib: pd.DataFrame) -> pd.DataFrame:
         pib['year'] = pib.index.year
         pib['quarter'] = pib.index.quarter
@@ -650,21 +650,38 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False) ->
 
     if real:
         dd = get_monetary_base(date_cod=True)
-        ipc_index = ipc.get_ipc(config.get('ipc_script').get('FILE_INFLA_EMPALMADA')).drop(columns='Date')
-        ddreal = pd.merge(dd, ipc_index, on='Date_Cod')
+        ipc_index = ipc.get_ipc(config.get('ipc_script').get('FILE_INFLA_EMPALMADA'))
+        
         m2 = get_m2()[['M2']].copy()
         
         # Reset index so 'Date' is not ambiguous (index and column)
         m2['Date'] = m2.index
         m2 = m2.reset_index(drop=True)
-        ddreal = pd.merge(ddreal, m2, on='Date')
+        dd_nom = pd.merge(dd, m2, on='Date')
         
-        ddreal = ipc.get_act_cap(ddreal)
-        ddreal['DPP_real'] = ddreal['DPP'] * ddreal['Capitalizador']
-        ddreal['DT_real'] = ddreal['DT'] * ddreal['Capitalizador']
-        ddreal['BMT_real'] = ddreal['BMT'] * ddreal['Capitalizador']
-        ddreal['M2_real'] = ddreal['M2'] * ddreal['Capitalizador']
-        return ddreal[['Date', 'DPP_real', 'DT_real', 'BMT_real', 'M2_real']].copy()
+        if monthly_mean:
+            dd_nom = dd_nom.set_index('Date')
+            monthly_nom = dd_nom[['DPP', 'DT', 'BMT', 'M2']].resample('ME').mean()
+            monthly_nom['Date'] = monthly_nom.index
+            monthly_nom = cod.get_date(monthly_nom)
+            ddreal = pd.merge(monthly_nom, ipc_index[['Date_Cod', 'IPC']], on='Date_Cod', how='inner')
+            # The capitalization factor is inversely proportional to IPC, normalized to the last month
+            ddreal['Capitalizador'] = 1 / ddreal['IPC']
+            ddreal['Capitalizador'] = ddreal['Capitalizador'] / ddreal['Capitalizador'].iloc[-1]
+            
+            for col in ['DPP', 'DT', 'BMT', 'M2']:
+                ddreal[f'{col}_real'] = ddreal[col] * ddreal['Capitalizador']
+            return ddreal[['Date', 'DPP_real', 'DT_real', 'BMT_real', 'M2_real']].copy()
+        else:
+            ipc_index = ipc_index.drop(columns='Date')
+            ddreal = pd.merge(dd_nom, ipc_index, on='Date_Cod')
+            
+            ddreal = ipc.get_act_cap(ddreal)
+            ddreal['DPP_real'] = ddreal['DPP'] * ddreal['Capitalizador']
+            ddreal['DT_real'] = ddreal['DT'] * ddreal['Capitalizador']
+            ddreal['BMT_real'] = ddreal['BMT'] * ddreal['Capitalizador']
+            ddreal['M2_real'] = ddreal['M2'] * ddreal['Capitalizador']
+            return ddreal[['Date', 'DPP_real', 'DT_real', 'BMT_real', 'M2_real']].copy()
     elif not estimado:
         pib = pbi.get_pbi_pcorrientes(config.get('pbi_script').get('URL_INDEC_PBI'))
         final = tratar_pbi(pib)
