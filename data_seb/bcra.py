@@ -684,6 +684,35 @@ def get_annual_variations(df: pd.DataFrame) -> pd.DataFrame:
     """
     return df.resample('YE').last().pct_change()
 
+def get_inflation_expectations(url: str = None) -> pd.DataFrame:
+    """Retrieves inflation expectations from the BCRA REM report.
+
+    Args:
+        url (str, optional): URL of the BCRA REM report Excel file. 
+            If None, uses the latest known URL.
+
+    Returns:
+        pd.DataFrame: A DataFrame with 'Date' and 'Expected_Inflation' 
+            (median) columns.
+    """
+    if url is None:
+        url = 'https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/informes/tablas-relevamiento-expectativas-mercado-feb-2026.xlsx'
+    
+    df = pd.read_excel(url, sheet_name='Cuadros de resultados', header=None)
+    
+    estimations = []
+    # Row 6 to 12 in 0-indexed DataFrame has the monthly estimates
+    for i in range(6, 13):
+        date_val = df.iloc[i, 1]
+        infla_pct = df.iloc[i, 3]  # Mediana column (index 3)
+        if pd.notna(date_val) and pd.notna(infla_pct):
+            estimations.append({
+                'Date': pd.to_datetime(date_val),
+                'Expected_Inflation': float(infla_pct) / 100.0
+            })
+            
+    return pd.DataFrame(estimations)
+
 def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
     """Retrieves daily data of USD deposits in the financial system.
 
