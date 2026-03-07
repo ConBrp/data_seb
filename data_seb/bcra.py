@@ -20,6 +20,25 @@ URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.
 URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias'
 
 
+def _preprocess_excel_bcra(sheet_name: str, filter_col: str, cols_map: dict) -> pd.DataFrame:
+    """
+    Internal helper to preprocess BCRA Excel sheets.
+    Renames columns to strings '1', '2', ..., filters for 'D' (daily),
+    selects/renames target columns, and standardizes the 'Date' column/index.
+    """
+    df = get_file_bcra(sheet_name)
+    if df is None:
+        return pd.DataFrame()
+    
+    df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
+    # Ensure filter_col and date column ('1') are strings for safety
+    df = df.loc[df[filter_col] == 'D', list(cols_map.keys())].copy()
+    df = df.rename(columns=cols_map)
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.set_index('Date', drop=False)
+    return df
+
+
 def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataFrame|None:
     """
     Devuelve un DataFrame con los datos de la hoja seleccionada del archivo series.xlsm del BCRA.
@@ -179,10 +198,7 @@ def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.Data
         df = get_series_api(arguments)
         df['Date'] = df.index
     else:
-        df = get_file_bcra('DEPOSITOS')
-        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        df = df.loc[df['30'] == 'D', ['1', '4', '5', '13', '14']]
-        df.columns = ['Date', 'PF_total', 'PF_UVA_total', 'PF_privado', 'PF_UVA_privado']
+        df = _preprocess_excel_bcra('DEPOSITOS', '30', {'1': 'Date', '4': 'PF_total', '5': 'PF_UVA_total', '13': 'PF_privado', '14': 'PF_UVA_privado'})
     if date_cod:
         return cod.get_date(df)
     return df
@@ -229,12 +245,8 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
                     [(15, 'BMT'), (16, 'CM'), (17, 'DPP'), (18, 'DPB'), (19, 'CCBCRA')])
                 columns = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'DT']
     else:  # En el archivo está la fecha 2010-12-31 y en la API no.
-        df = get_file_bcra('BASE MONETARIA')
-        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        df = df.loc[df['33'] == 'D', ['1', '26', '27', '28', '29', '30', '31', '32']].copy()
-        df.columns = ['Date', 'DPP', 'DPB', 'CC', 'CCBCRA', 'BMT', 'QM', 'BMTQ']
+        df = _preprocess_excel_bcra('BASE MONETARIA', '33', {'1': 'Date', '26': 'DPP', '27': 'DPB', '28': 'CC', '29': 'CCBCRA', '30': 'BMT', '31': 'QM', '32': 'BMTQ'})
         df['CM'] = df['DPP'] + df['DPB'] + df['CC']
-        df.index = df['Date']
     if not only_bmt:
         df['DT'] = df['DPP'] + df['DPB']
     if date_cod:
@@ -324,12 +336,7 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
         df = get_series_api([(152, 'Pases_Pasivos'), (154, 'Pases_Activos'), (153, 'Pases_Pasivos_FCI'), (156, 'LEBACs'),
                              (155, 'LELIQs'), (158, 'LEBACsD_LEVID_BOPREAL'), (159, 'NOCOMs'), (198, 'Otros_Pases')])
     else:
-        df = get_file_bcra('INSTRUMENTOS DEL BCRA')
-        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        df = df[['1', '2', '3', '4', '5', '6', '8', '9']].copy()
-        df.columns = ['Date', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs',
-                      'LEBACsD_LEVID_BOPREAL',
-                      'NOCOMs']
+        df = _preprocess_excel_bcra('INSTRUMENTOS DEL BCRA', '1', {'1': 'Date', '2': 'Pases_Pasivos', '3': 'Pases_Pasivos_FCI', '4': 'Pases_Activos', '5': 'LELIQs', '6': 'LEBACs', '8': 'LEBACsD_LEVID_BOPREAL', '9': 'NOCOMs'})
         df[df.columns[1:]] = df.loc[:, 'Pases_Pasivos': 'NOCOMs'].apply(pd.to_numeric, errors='coerce').fillna(0)
 
     if date_cod:
@@ -432,12 +439,7 @@ def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.D
     if api:
         df = get_from_api(1, 'RRII')
     else:
-        df = get_file_bcra('RESERVAS')
-        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        df = df[df['17'] == 'D'][['1', '3']].copy()
-        df.columns = ['Date', 'RRII']
-        df['Date'] = pd.to_datetime(df['Date'])
-        df = df.set_index('Date')
+        df = _preprocess_excel_bcra('RESERVAS', '17', {'1': 'Date', '3': 'RRII'})
 
     if date_cod:
         df['Date'] = df.index
@@ -457,10 +459,7 @@ def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
     if online:
         df = get_from_api(117, 'Préstamos')
     else:
-        df = get_file_bcra("PRESTAMOS")
-        df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
-        df = df.loc[df["22"] == "D", ["1", "9"]].copy()
-        df = df.rename(columns={"1": "Date", "9": "Creditos"})
+        df = _preprocess_excel_bcra("PRESTAMOS", "22", {"1": "Date", "9": "Creditos"})
     if date_cod:
         return cod.get_date(df)
     else:
