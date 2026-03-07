@@ -6,6 +6,9 @@ import concurrent.futures
 
 from . import cod, pbi, ipc
 
+# Suppression of insecure request warnings at module level
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 URL_BCRA = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/series.xlsm'
 URL_BCRA_TCRM = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/ITCRMSerie.xlsx'
 URL_BCRA_TC = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/com3500.xls'
@@ -27,7 +30,6 @@ def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataF
     :return: DataFrame con datos de la hoja seleccionada / DataFrame with data from the selected sheet.
     """
     if download_file:
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         response = requests.get(URL_BCRA, verify=False)
         with open('series.xlsm', 'wb') as archivo:
             archivo.write(response.content)
@@ -43,8 +45,8 @@ def get_file_tc_oficial() -> pd.DataFrame:
     :return: DataFrame 'Fecha', 'TC_A3500' / DataFrame 'Fecha', 'TC_A3500'.
     """
     df = pd.read_excel(URL_BCRA_TC, header=3).dropna(axis='columns')
-    df.columns = ['Fecha', 'TC_A3500']
-    df.index = pd.to_datetime(df['Fecha'])
+    df.columns = ['Date', 'TC_A3500']
+    df.index = pd.to_datetime(df['Date'])
     return df
 
 def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
@@ -56,8 +58,8 @@ def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
     :param sheet_name: Nombre de la hoja a procesar (diaria o promedio mensual) / Name of the sheet to process (daily or monthly average).
     :return: DataFrame con columnas 'Fecha' y datos del ITCRM / DataFrame with 'Fecha' column and ITCRM data.
     """
-    df = pd.read_excel(URL_BCRA_TCRM, sheet_name=sheet_name, header=[1]).dropna().rename(columns={'Período': 'Fecha'})
-    df['Fecha'] = pd.to_datetime(df['Fecha'])
+    df = pd.read_excel(URL_BCRA_TCRM, sheet_name=sheet_name, header=[1]).dropna().rename(columns={'Período': 'Date'})
+    df['Date'] = pd.to_datetime(df['Date'])
     return df
 
 def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.DataFrame:
@@ -115,7 +117,6 @@ def get_principales_variables() -> None:
 
     :return: DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor' / DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor'.
     """
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     response = requests.get(URL_API_MON, verify=False)
     return pd.DataFrame(response.json()['results']).to_excel('Principales_variables.xlsx')
 
@@ -129,7 +130,6 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     :param nombre: Nombre a asignar a la columna de la variable en el DataFrame / Name to assign to the variable column in the DataFrame.
     :return: DataFrame con los datos de la variable, indexado por fecha / DataFrame with the variable data, indexed by date.
     """
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     response = requests.get(f'{URL_API_MON}/{idvariable}?limit=3000', verify=False)
     df = pd.DataFrame(response.json().get('results')[0].get('detalle')).set_index('fecha', drop=True)
     while response.json().get('results')[0].get('detalle'):
@@ -181,12 +181,12 @@ def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.Data
             nombre = [arg[1] for arg in arguments]
             results = executor.map(get_from_api, idvariable, nombre)
         df = pd.concat(list(results), axis='columns')
-        df['Fecha'] = df.index
+        df['Date'] = df.index
     else:
         df = get_file_bcra('DEPOSITOS')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df.loc[df['30'] == 'D', ['1', '4', '5', '13', '14']]
-        df.columns = ['Fecha', 'PF_total', 'PF_UVA_total', 'PF_privado', 'PF_UVA_privado']
+        df.columns = ['Date', 'PF_total', 'PF_UVA_total', 'PF_privado', 'PF_UVA_privado']
     if date_cod:
         return cod.get_date(df)
     return df
@@ -236,14 +236,16 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
         df = get_file_bcra('BASE MONETARIA')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df.loc[df['33'] == 'D', ['1', '26', '27', '28', '29', '30', '31', '32']].copy()
-        df.columns = ['Fecha', 'DPP', 'DPB', 'CC', 'CCBCRA', 'BMT', 'QM', 'BMTQ']
+        df.columns = ['Date', 'DPP', 'DPB', 'CC', 'CCBCRA', 'BMT', 'QM', 'BMTQ']
         df['CM'] = df['DPP'] + df['DPB'] + df['CC']
-        df.index = df['Fecha']
+        df.index = df['Date']
     if not only_bmt:
         df['DT'] = df['DPP'] + df['DPB']
     if date_cod:
         df['Date'] = df.index
         return cod.get_date(df)[cod.COLS + columns].dropna().sort_index().copy()
+    
+    df['Date'] = df.index
     return df.dropna()
 
 def  get_m2(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
@@ -273,10 +275,10 @@ def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df.dropna(subset=['1', '2'])
         df = df.loc[:, ['1', '3', '4', '5', '6']].copy()
-        df.columns = ['Fecha', 'VT', 'Publico', 'Privado', 'BCRA']
+        df.columns = ['Date', 'VT', 'Publico', 'Privado', 'BCRA']
         df['LEFI'] = df['Publico'] + df['Privado']
-        df['Fecha'] = pd.to_datetime(df['Fecha'])
-        df = df.set_index('Fecha', drop=False)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.set_index('Date', drop=False)
     if date_cod:
         return cod.get_date(df)[cod.COLS + ['LEFI', 'LEFI_Flujo']].dropna()
     else:
@@ -329,7 +331,7 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
         df = get_file_bcra('INSTRUMENTOS DEL BCRA')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df[['1', '2', '3', '4', '5', '6', '8', '9']].copy()
-        df.columns = ['Fecha', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs',
+        df.columns = ['Date', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs',
                       'LEBACsD_LEVID_BOPREAL',
                       'NOCOMs']
         df[df.columns[1:]] = df.loc[:, 'Pases_Pasivos': 'NOCOMs'].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -394,7 +396,7 @@ def get_official_exchange_rate(date_cod: bool = False, api: bool = True, mensual
         else:
             df = get_file_tc_oficial()
     if date_cod:
-        df['Fecha'] = df.index
+        df['Date'] = df.index
         return cod.get_date(df)[cod.COLS + ['A3500_ER']]
     return df.dropna()
 
@@ -437,14 +439,14 @@ def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.D
         df = get_file_bcra('RESERVAS')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df[df['17'] == 'D'][['1', '3']].copy()
-        df.columns = ['Fecha', 'RRII']
-        df['Fecha'] = pd.to_datetime(df['Fecha'])
-        df = df.set_index('Fecha')
+        df.columns = ['Date', 'RRII']
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.set_index('Date')
 
     if date_cod:
-        df['Fecha'] = df.index
+        df['Date'] = df.index
         return cod.get_date(df)[cod.COLS + ["RRII"]]
-    return df
+    return df.rename(columns={'Fecha': 'Date'}) if 'Fecha' in df.columns else df
 
 def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
     """
@@ -462,7 +464,7 @@ def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
         df = get_file_bcra("PRESTAMOS")
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         df = df.loc[df["22"] == "D", ["1", "9"]].copy()
-        df = df.rename(columns={"1": "Fecha", "9": "Creditos"})
+        df = df.rename(columns={"1": "Date", "9": "Creditos"})
     if date_cod:
         return cod.get_date(df)
     else:
@@ -479,8 +481,8 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
     :param type: Tipo de tasas a procesar (0: pesos, 1: ambas, 2: dólares) / Type of rates to process (0: pesos, 1: both, 2: dollars).
     :return: DataFrame 'TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'TEM_GenP', 'TEM_100KP', 'TEM_1MP', 'TEA_GenP', 'TEA_100KP', 'TEA_1MP', 'Fecha' (para type=0); similar para type=1 y type=2 / DataFrame 'TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'TEM_GenP', 'TEM_100KP', 'TEM_1MP', 'TEA_GenP', 'TEA_100KP', 'TEA_1MP', 'Fecha' (for type=0); similar for type=1 and type=2.
     """
-    columns_pesos = ['TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'Fecha']
-    columns_dolares = ['TNA_GenD', 'TNA_100KD', 'TNA_1MD', 'Fecha']
+    columns_pesos = ['TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'Date']
+    columns_dolares = ['TNA_GenD', 'TNA_100KD', 'TNA_1MD', 'Date']
 
     def get_file() -> pd.DataFrame:
         """
@@ -514,7 +516,7 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
 
             tea_col = f'TEA_{tasa.split("_")[1]}'
             df[tea_col] = (1 + df[tem_col]) ** 12 - 1
-        df.index = df['Fecha']
+        df.index = df['Date']
         return df
 
     # Process based on type_value
@@ -537,7 +539,7 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
                 tasas_dolares = df[['6', '7', '8', '1']].copy()
                 tasas_dolares['8'] = pd.to_numeric(tasas_dolares['8'], errors='coerce').fillna(
                     0)  # Se pone cero en los NA de 'TNA_1MD'
-            df = pd.concat([calculate_rates(tasas_pesos, columns_pesos).drop(columns='Fecha'),
+            df = pd.concat([calculate_rates(tasas_pesos, columns_pesos).drop(columns='Date'),
                             calculate_rates(tasas_dolares, columns_dolares)],
                            axis='columns')
         case 2:  # Dollars only
@@ -553,8 +555,8 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
 
         case _:
             raise ValueError(f"Invalid type_value: {type}. Must be 0, 1, or 2.")
-    df = df.drop(columns='Fecha')
-    df['Fecha'] = df.index
+    df = df.drop(columns='Date')
+    df['Date'] = df.index
     if date_cod:
         return cod.get_date(df)
     return df
