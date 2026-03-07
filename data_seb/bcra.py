@@ -1,12 +1,14 @@
 import pandas as pd
 import numpy as np
 import requests
+import re
 import urllib3
 import concurrent.futures
+from datetime import datetime, date
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
-from . import cod, pbi, ipc
+from data_seb import cod, pbi, ipc
 
 # Suppression of insecure request warnings at module level
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -751,6 +753,45 @@ def get_inflation_expectations(url: str = None) -> pd.DataFrame:
             })
             
     return pd.DataFrame(estimations)
+
+def get_next_rem_date() -> date | None:
+    """Retrieves the next REM release date from the BCRA homepage.
+
+    Returns:
+        date | None: The scheduled release date for the next REM 
+            or None if not found.
+    """
+    url = "https://www.bcra.gob.ar/"
+    try:
+        response = requests.get(url, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Look for the REM text in the upcoming reports section
+        rem_item = soup.find(string=re.compile(r'Relevamiento de Expectativas de Mercado \(REM\)', re.I))
+        if rem_item:
+            # The date is usually in the second cell of the same row
+            row = rem_item.find_parent('tr')
+            if row:
+                cells = row.find_all('td')
+                if len(cells) >= 2:
+                    date_str = cells[1].get_text(strip=True)
+                    
+                    # Parse Spanish date (e.g., '08 abr 2026')
+                    months = {
+                        'ene': 'Jan', 'feb': 'Feb', 'mar': 'Mar', 'abr': 'Apr',
+                        'may': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug',
+                        'sep': 'Sep', 'oct': 'Oct', 'nov': 'Nov', 'dic': 'Dec'
+                    }
+                    parts = date_str.split()
+                    if len(parts) == 3:
+                        day, month_sp, year = parts
+                        month_en = months.get(month_sp.lower()[:3])
+                        if month_en:
+                            en_date_str = f"{day} {month_en} {year}"
+                            return datetime.strptime(en_date_str, "%d %b %Y").date()
+        return None
+    except Exception:
+        return None
 
 def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
     """Retrieves daily data of USD deposits in the financial system.
