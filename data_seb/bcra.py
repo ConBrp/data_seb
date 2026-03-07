@@ -3,6 +3,8 @@ import numpy as np
 import requests
 import urllib3
 import concurrent.futures
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup
 
 from . import cod, pbi, ipc
 
@@ -18,6 +20,7 @@ URL_BCRA_RES = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din2_ser.
 URL_BCRA_ACT = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din3_ser.txt'
 URL_BCRA_PAS = 'https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/din4_ser.txt'
 URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias'
+URL_BCRA_REPORTS = 'https://www.bcra.gob.ar/informes/'
 
 
 def _preprocess_excel_bcra(sheet_name: str, filter_col: str, cols_map: dict) -> pd.DataFrame:
@@ -682,18 +685,56 @@ def get_annual_variations(df: pd.DataFrame) -> pd.DataFrame:
     """
     return df.resample('YE').last().pct_change()
 
+def _get_latest_rem_url() -> str:
+    """Internal helper to discover the latest REM report Excel URL.
+
+    Scrapes the BCRA reports page to find the most recent REM report 
+    and extracts the download link for the Excel result tables.
+
+    Returns:
+        str: The absolute URL of the latest REM Excel file.
+    """
+    try:
+        base_url = "https://www.bcra.gob.ar"
+        response = requests.get(URL_BCRA_REPORTS, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        rem_page_url = None
+        for a in soup.find_all('a', href=True):
+            if "Relevamiento de Expectativas de Mercado (REM)" in a.get_text():
+                rem_page_url = urljoin(base_url, a['href'])
+                break
+                
+        if not rem_page_url:
+            return None
+            
+        response = requests.get(rem_page_url, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            if "tablas-relevamiento-expectativas-mercado" in href and href.endswith(".xlsx"):
+                return urljoin(base_url, href)
+    except Exception:
+        return None
+    return None
+
 def get_inflation_expectations(url: str = None) -> pd.DataFrame:
     """Retrieves inflation expectations from the BCRA REM report.
 
     Args:
         url (str, optional): URL of the BCRA REM report Excel file. 
-            If None, uses the latest known URL.
+            If None, attempts to discover the latest available URL.
 
     Returns:
         pd.DataFrame: A DataFrame with 'Date' and 'Expected_Inflation' 
             (median) columns.
     """
     if url is None:
+        url = _get_latest_rem_url()
+    
+    if url is None:
+        # Fallback to the last known manual URL if discovery fails
         url = 'https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/informes/tablas-relevamiento-expectativas-mercado-feb-2026.xlsx'
     
     df = pd.read_excel(url, sheet_name='Cuadros de resultados', header=None)
