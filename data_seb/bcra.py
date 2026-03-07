@@ -175,12 +175,8 @@ def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.Data
     :return: DataFrame 'PF', 'PF_UVA', 'PF_Privado', 'PF_UVA_Privado', 'Fecha', 'Dia', 'Date', 'Mes', 'Año' / DataFrame 'PF', 'PF_UVA', 'PF_Privado', 'PF_UVA_Privado', 'Fecha', 'Dia', 'Date', 'Mes', 'Año'.
     """
     if api:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            arguments = [(87, 'PF'), (88, 'PF_UVA'), (96, 'PF_Privado'), (97, 'PF_UVA_Privado')]
-            idvariable = [arg[0] for arg in arguments]
-            nombre = [arg[1] for arg in arguments]
-            results = executor.map(get_from_api, idvariable, nombre)
-        df = pd.concat(list(results), axis='columns')
+        arguments = [(87, 'PF'), (88, 'PF_UVA'), (96, 'PF_Privado'), (97, 'PF_UVA_Privado')]
+        df = get_series_api(arguments)
         df['Date'] = df.index
     else:
         df = get_file_bcra('DEPOSITOS')
@@ -523,7 +519,7 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
     match type:
         case 0:  # Pesos only
             if api:
-                tasas_pesos = get_series_api([(128, 'TNA_genP'), (129, 'TNA_100KP'), (131, 'TNA_1MP')])
+                tasas_pesos = get_series_api([(128, 'TNA_genP'), (129, 'TNA_100KP'), (131, 'TNA_1MP')], date=True)
             else:
                 df = get_file()
                 tasas_pesos = df[['2', '3', '5', '1']].copy()
