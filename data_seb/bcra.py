@@ -21,10 +21,18 @@ URL_API_MON = 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias'
 
 
 def _preprocess_excel_bcra(sheet_name: str, filter_col: str, cols_map: dict) -> pd.DataFrame:
-    """
-    Internal helper to preprocess BCRA Excel sheets.
-    Renames columns to strings '1', '2', ..., filters for 'D' (daily),
-    selects/renames target columns, and standardizes the 'Date' column/index.
+    """Internal helper to preprocess BCRA Excel sheets.
+
+    Renames columns to strings '1', '2', ..., filters for daily data ('D'),
+    selects/renames target columns, and standardizes the 'Date' column and index.
+
+    Args:
+        sheet_name (str): Name of the Excel sheet to process.
+        filter_col (str): Column index used to filter for daily data ('D').
+        cols_map (dict): Mapping of column indices to target names.
+
+    Returns:
+        pd.DataFrame: A preprocessed DataFrame with standardized dates.
     """
     df = get_file_bcra(sheet_name)
     if df is None:
@@ -40,13 +48,19 @@ def _preprocess_excel_bcra(sheet_name: str, filter_col: str, cols_map: dict) -> 
 
 
 def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataFrame|None:
-    """
-    Devuelve un DataFrame con los datos de la hoja seleccionada del archivo series.xlsm del BCRA.
+    """Retrieves a DataFrame from the specified sheet of the BCRA's series.xlsm file.
 
-    Returns a DataFrame with data from the selected sheet of the BCRA's series.xlsm file.
+    This function can either download the entire Excel file locally or read a specific 
+    sheet into a pandas DataFrame.
 
-    :param sheet_name: Nombre de la hoja a devolver / Name of the sheet to retrieve.
-    :return: DataFrame con datos de la hoja seleccionada / DataFrame with data from the selected sheet.
+    Args:
+        sheet_name (str, optional): Name of the sheet to retrieve. Defaults to ''.
+        download_file (bool, optional): If True, downloads the file and saves it as 
+            'series.xlsm' instead of returning a DataFrame. Defaults to False.
+
+    Returns:
+        pd.DataFrame | None: A DataFrame containing the session data if download_file 
+            is False, or None if the file was downloaded.
     """
     if download_file:
         response = requests.get(URL_BCRA, verify=False)
@@ -56,12 +70,10 @@ def get_file_bcra(sheet_name: str = '', download_file: bool = False) -> pd.DataF
     return pd.read_excel(URL_BCRA, header=[0, 1, 2, 3, 4, 5, 6, 7, 8], sheet_name=sheet_name)
 
 def get_file_tc_oficial() -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos del tipo de cambio oficial (A3500) del archivo com3500.xls del BCRA.
+    """Retrieves the official exchange rate (A3500) from the BCRA's com3500.xls file.
 
-    Returns a DataFrame with the official exchange rate (A3500) of the BCRA's com3500.xls file.
-
-    :return: DataFrame 'Fecha', 'TC_A3500' / DataFrame 'Fecha', 'TC_A3500'.
+    Returns:
+        pd.DataFrame: A DataFrame with columns 'Date' and 'TC_A3500', indexed by Date.
     """
     df = pd.read_excel(URL_BCRA_TC, header=3).dropna(axis='columns')
     df.columns = ['Date', 'TC_A3500']
@@ -69,39 +81,42 @@ def get_file_tc_oficial() -> pd.DataFrame:
     return df
 
 def get_file_itcrm(sheet_name: str) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
+    """Retrieves Multilateral Real Exchange Rate Index (ITCRM) data from the BCRA.
 
-    Returns a DataFrame with data from the Multilateral Real Exchange Rate Index (ITCRM) of the BCRA.
+    Args:
+        sheet_name (str): Name of the sheet to process (e.g., daily or monthly average).
 
-    :param sheet_name: Nombre de la hoja a procesar (diaria o promedio mensual) / Name of the sheet to process (daily or monthly average).
-    :return: DataFrame con columnas 'Fecha' y datos del ITCRM / DataFrame with 'Fecha' column and ITCRM data.
+    Returns:
+        pd.DataFrame: A DataFrame with columns 'Date' and ITCRM values.
     """
     df = pd.read_excel(URL_BCRA_TCRM, sheet_name=sheet_name, header=[1]).dropna().rename(columns={'Período': 'Date'})
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
 def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos del BCRA desde un archivo específico, opcionalmente dividiendo los valores por 1000.
+    """Retrieves BCRA data from a specific text-based file.
 
-    Returns a DataFrame with BCRA data from a specific file, optionally dividing values by 1000.
+    This function downloads and processes time-series data from various BCRA 
+    endpoints (BAL, RES, ACT, PAS).
 
-    :param file: Identificador del archivo (1: BAL, 2: RES, 3: ACT, 4: PAS) / File identifier (1: BAL, 2: RES, 3: ACT, 4: PAS).
-    :param serie: Lista de códigos de series a obtener / List of series codes to retrieve.
-    :param div: Si es True, divide los valores por 1000. Por defecto es True / If True, divide the values by 1000. Defaults to True.
-    :return: DataFrame con las series seleccionadas y una columna 'Fecha' / DataFrame with the selected series and a 'Fecha' column.
+    Args:
+        file (int): File identifier (1: BAL, 2: RES, 3: ACT, 4: PAS).
+        serie (list[int]): List of series codes to retrieve from the file.
+        div (bool, optional): If True, divides the values by 1000. Defaults to True.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the selected series and a 'Date' column.
     """
 
     def download(link: str, dividir: bool) -> pd.DataFrame:
-        """
-        Descarga y preprocesa datos del BCRA desde una URL dada.
+        """Downloads and preprocesses BCRA data from a given URL.
 
-        Downloads and preprocesses BCRA data from a given URL.
+        Args:
+            link (str): URL of the file to download.
+            dividir (bool): If True, divide the values by 1000.
 
-        :param link: URL del archivo a descargar / URL of the file to download.
-        :param dividir: Si es True, divide los valores por 1000 / If True, divide the values by 1000.
-        :return: DataFrame preprocesado con una columna 'Fecha' / Preprocessed DataFrame with a 'Fecha' column.
+        Returns:
+            pd.DataFrame: Preprocessed DataFrame with a 'Date' column.
         """
         df = pd.read_csv(link, sep=';', names=['Cat', 'Fecha', 'Monto'],
                          dtype={'Cat': str, 'Fecha': str, 'Monto': float}).dropna()
@@ -123,25 +138,28 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
     return pd.DataFrame()
 
 def get_principales_variables() -> None:
-    """
-    Devuelve un DataFrame con las variables principales accesibles mediante la API del BCRA y sus códigos.
+    """Retrieves and saves the main variables accessible via the BCRA API.
 
-    Returns a DataFrame with the main variables accessible via the BCRA API and their codes.
+    The results are saved to an Excel file named 'Principales_variables.xlsx'.
 
-    :return: DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor' / DataFrame 'idVariable', 'cdSerie', 'descripcion', 'fecha', 'valor'.
+    Returns:
+        None
     """
     response = requests.get(URL_API_MON, verify=False)
     return pd.DataFrame(response.json()['results']).to_excel('Principales_variables.xlsx')
 
 def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos históricos de una variable específica desde la API del BCRA.
+    """Retrieves historical data for a specific variable from the BCRA API.
 
-    Returns a DataFrame with historical data for a specific variable from the BCRA API.
+    The function handles pagination, fetching data in chunks of 3000 results until 
+    the full history is retrieved.
 
-    :param idvariable: ID de la variable a obtener / ID of the variable to retrieve.
-    :param nombre: Nombre a asignar a la columna de la variable en el DataFrame / Name to assign to the variable column in the DataFrame.
-    :return: DataFrame con los datos de la variable, indexado por fecha / DataFrame with the variable data, indexed by date.
+    Args:
+        idvariable (int): ID of the variable to retrieve.
+        nombre (str): Name to assign to the variable column in the DataFrame.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the variable data, indexed by 'Date'.
     """
     response = requests.get(f'{URL_API_MON}/{idvariable}?limit=3000', verify=False)
     df = pd.DataFrame(response.json().get('results')[0].get('detalle')).set_index('fecha', drop=True)
@@ -159,13 +177,16 @@ def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     return df.sort_index()
 
 def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con múltiples variables desde la API del BCRA usando solicitudes concurrentes.
+    """Retrieves multiple variables from the BCRA API using concurrent requests.
 
-    Returns a DataFrame with multiple variables from the BCRA API using concurrent requests.
+    Args:
+        arguments (list[tuple]): List of tuples with (idvariable, nombre) 
+            for each variable to retrieve.
+        date (bool, optional): If True, adds an explicit 'Date' column. 
+            Defaults to False.
 
-    :param arguments: Lista de tuplas con (idvariable, nombre) para cada variable a obtener / List of tuples with (idvariable, nombre) for each variable to retrieve.
-    :return: DataFrame con columnas para cada variable y una columna 'Fecha' / DataFrame with columns for each variable and a 'Fecha' column.
+    Returns:
+        pd.DataFrame: A DataFrame with columns for each variable, indexed by Date.
     """
     with concurrent.futures.ThreadPoolExecutor() as executor:
         idvariable = [arg[0] for arg in arguments]
@@ -178,14 +199,17 @@ def get_series_api(arguments: list[tuple], date: bool = False) -> pd.DataFrame:
     return df
 
 def get_fixed_term_deposits(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de los depósitos a plazo fijo.
+    """Retrieves daily data on fixed-term deposits from the BCRA.
 
-    Returns a DataFrame with daily data on fixed-term deposits from the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date' 
+            (Month-Year). Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :return: DataFrame 'PF', 'PF_UVA', 'PF_Privado', 'PF_UVA_Privado', 'Fecha', 'Dia', 'Date', 'Mes', 'Año' / DataFrame 'PF', 'PF_UVA', 'PF_Privado', 'PF_UVA_Privado', 'Fecha', 'Dia', 'Date', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with columns 'PF', 'PF_UVA', 'PF_Privado', 
+            'PF_UVA_Privado', and 'Date'.
     """
     if api:
         arguments = [(87, 'PF'), (88, 'PF_UVA'), (96, 'PF_Privado'), (97, 'PF_UVA_Privado')]
@@ -202,26 +226,31 @@ def get_current_account_bcra() -> pd.DataFrame:
 
 def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
                        only_bmt: bool = False) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de 'BMT', 'CM', 'df', 'DPB', 'CCBCRA', 'CC', 'BM', 'DT'.
+    """Retrieves daily data on monetary base components from the BCRA.
 
-    Returns a DataFrame with daily data on monetary base components from the BCRA.
+    'BMT': Total monetary base = 'DPP' + 'DPB' + 'CCBCRA' + 'CC'.
+    'CM': Monetary circulation = 'DPP' + 'DPB' + 'CC'.
+    'DPP': Notes and coins held by the public.
+    'DPB': Notes and coins in entities (money held by banks).
+    'CCBCRA': Current account at the BCRA (of banks).
+    'CC': Cancelled checks.
+    'QM': Quasi-money.
+    'BMTQ': 'BMT' + 'QM'.
+    'DT': Total money = 'DPP' + 'DPB'.
 
-    'BMT': Base monetaria totol = 'DPP' + 'DPB' + 'CCBCRA' + 'CC' / Total monetary base = 'DPP' + 'DPB' + 'CCBCRA' + 'CC'.
-    'CM': Circulación monetaria / Monetary circulation.
-    'DPP': Billetes y Monedas en Poder del Público / Notes and coins held by the public.
-    'DPB': Billetes y Monedas en Entidades (Dinero en poder de bancos) / Notes and coins in entities (money held by banks).
-    'CCBCRA': Cuenta Corriente en el BCRA (de los bancos) / Current account at the BCRA (of banks).
-    'CC': Cheques cancelatorios / Cancelled checks.
-    'QM': Cuasimonedas / Quasi-money.
-    'BMTQ': 'BMT' + 'QM' / 'BMT' + 'QM'.
-    'DT': Dinero total = 'DPP' + 'DPB' / Total money = 'DPP' + 'DPB'.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
+        q (bool, optional): If True, includes quasi-money ('QM') and 'BMTQ'. 
+            Defaults to False.
+        only_bmt (bool, optional): If True, returns only the total monetary 
+            base ('BMT'). Defaults to False.
 
-    :param date_cod: Define si agregan columns para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :param q: Si es True, incluye cuasi-monedas ('QM') y 'BMTQ' / If True, include quasi-money ('QM') and 'BMTQ'.
-    :param only_bmt: Si es True, devuelve solo la base monetaria total ('BMT') / If True, return only the total monetary base ('BMT').
-    :return: DataFrame 'Fecha', 'Date', 'Dia', 'BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT' / DataFrame 'Fecha', 'Date', 'Dia', 'BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT'.
+    Returns:
+        pd.DataFrame: A DataFrame containing some or all of: 'Date', 'BMT', 'CM', 
+            'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT'.
     """
     columns = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'CC', 'QM', 'BMTQ', 'DT']
 
@@ -251,6 +280,16 @@ def get_monetary_base(date_cod: bool = False, api: bool = True, q: bool = False,
     return df.dropna()
 
 def  get_m2(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+    """Retrieves daily data of the M2 monetary aggregate from the BCRA.
+
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API. Defaults to True.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'M2' series and 'Date'.
+    """
     if api:
         if date_cod:
             df = get_from_api(109, 'M2')
@@ -261,14 +300,16 @@ def  get_m2(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
         return pd.DataFrame()
 
 def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios del stock de LEFI y su flujo (LEFI_Flujo).
+    """Retrieves daily data on LEFI (Letras Fiscales de Liquidez) stock and flow.
 
-    Returns a DataFrame with daily data on LEFI stock and its flow (LEFI_Flujo) from the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the URL_OPER Excel file. Defaults to True.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :return: DataFrame 'LEFI', 'LEFI_Flujo', 'Fecha', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'LEFI', 'LEFI_Flujo', 'Fecha', 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with 'LEFI', 'LEFI_Flujo', and 'Date'.
     """
     if api:
         df = get_series_api([(196, 'LEFI'), (58, 'LEFI_Flujo')])
@@ -286,45 +327,56 @@ def get_lefis(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
     else:
         return df.dropna()
 
-def get_lebacs(date_cod: bool = False, api: bool = True):
-    """
-    Saldo de LEBAC y NOBAC en Pesos, LEGAR y LEMIN  (en millones de $)
-    :param date_cod:
-    :param api:
-    :return:
+def get_lebacs(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
+    """Retrieves the balance of LEBACs and NOBACs from the BCRA.
+
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API. Defaults to True.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'LEBACs' series.
     """
     return get_from_api(156, 'LEBACs')
 
 def get_leliqs() -> pd.DataFrame:
-    """
-    Saldo de LELIQ y NOTALIQ (en millones de $)
-    :return:
+    """Retrieves the balance of LELIQ and NOTALIQ from the BCRA.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'LELIQs' series.
     """
     return get_from_api(155, 'LELIQs')
 
-def get_repo():
-    """
-    Pases activos
-    :return:
+def get_repo() -> pd.DataFrame:
+    """Retrieves active repos (Pases activos) from the BCRA.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'REPOs' series.
     """
     return get_from_api(154, 'REPOs')
 
-def get_reverse_repo():
-    """
-    Pases pasivos
-    :return:
+def get_reverse_repo() -> pd.DataFrame:
+    """Retrieves reverse repos (Pases pasivos) from the BCRA.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'REVERSE_REPO' series.
     """
     return get_from_api(152, 'REVERSE_REPO')
 
 def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de los instrumentos monetarios del BCRA.
+    """Retrieves daily data of various BCRA monetary instruments.
 
-    Returns a DataFrame with daily data on BCRA monetary instruments.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :return: DataFrame 'Fecha', 'Date', 'Dia', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs', 'LEBACsD_LEVID_BOPREAL', 'NOCOMs' / DataFrame 'Fecha', 'Date', 'Dia', 'Pases_Pasivos', 'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs', 'LEBACsD_LEVID_BOPREAL', 'NOCOMs'.
+    Returns:
+        pd.DataFrame: A DataFrame with columns 'Date', 'Pases_Pasivos', 
+            'Pases_Pasivos_FCI', 'Pases_Activos', 'LELIQs', 'LEBACs', 
+            'LEBACsD_LEVID_BOPREAL', and 'NOCOMs'.
     """
     if api:  # Los pases pasivos tienen un día menos de datos con la API.
         df = get_series_api([(152, 'Pases_Pasivos'), (154, 'Pases_Activos'), (153, 'Pases_Pasivos_FCI'), (156, 'LEBACs'),
@@ -339,13 +391,16 @@ def get_monetary_instruments(date_cod: bool = False, api: bool = True) -> pd.Dat
     return df
 
 def get_government_deposits(date_cod: bool = False, kind: str = 'ARS') -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de los depósitos del gobierno en pesos del BCRA.
+    """Retrieves daily data on government deposits from the BCRA.
 
-    Returns a DataFrame with daily data on government deposits in pesos from the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        kind (str, optional): Type of deposits to retrieve ('ARS', 'USD', 'BOTH'). 
+            Defaults to 'ARS'.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :return: DataFrame 'Fecha', 'Depositos_gob', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'Depositos_gob', 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with government deposit columns and 'Date'.
     """
     match kind:
         case 'ARS':
@@ -369,18 +424,26 @@ def get_government_deposits(date_cod: bool = False, kind: str = 'ARS') -> pd.Dat
         return df.dropna()
 
 def get_accounting_exchange_rate() -> pd.DataFrame:
+    """Retrieves the accounting exchange rate from the BCRA API.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'A_Exchange_Rate' column, indexed by Date.
+    """
     return get_from_api(84, 'A_Exchange_Rate')
 
 def get_official_exchange_rate(date_cod: bool = False, api: bool = True, mensual: bool = False) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los valores del tipo de cambio oficial (A3500) del BCRA.
+    """Retrieves the official exchange rate (A3500) values from the BCRA.
 
-    Returns a DataFrame with the official exchange rate (A3500) values from the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local com3500.xls file. Defaults to True.
+        mensual (bool, optional): If True, returns monthly averages. 
+            Defaults to False.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo com3500.xls local / If True, use the BCRA API; otherwise, use the local com3500.xls file.
-    :param mensual: Define si se devuelven promedios mensuales / If True, return monthly averages.
-    :return: DataFrame 'Fecha', 'TC_A3500', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'TC_A3500', 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with 'A3500_ER' and 'Date'.
     """
     if api:
         if mensual:
@@ -398,15 +461,18 @@ def get_official_exchange_rate(date_cod: bool = False, api: bool = True, mensual
     return df.dropna()
 
 def get_retail_exchange_rate() -> pd.DataFrame:
+    """Retrieves the retail exchange rate from the BCRA API.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'R_exchange_rate' column, indexed by Date.
+    """
     return get_from_api(4, 'R_exchange_rate')
 
 def get_cer() -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con la serie del coeficiente CER indexada por fecha del BCRA.
+    """Retrieves the CER (Coeficiente de Estabilización de Referencia) index.
 
-    Returns a DataFrame with the CER coefficient series indexed by date from the BCRA.
-
-    :return: DataFrame 'CER' / DataFrame 'CER'.
+    Returns:
+        pd.DataFrame: A DataFrame with the 'CER' column, indexed by Date.
     """
     return get_from_api(30, 'CER')
 
@@ -421,14 +487,16 @@ def get_uva() -> pd.DataFrame:
     return get_from_api(31, 'UVA')
 
 def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con la serie de las reservas internacionales brutas del BCRA, indexado por fecha.
+    """Retrieves daily data on BCRA international reserves (RRII).
 
-    Returns a DataFrame with the series of gross international reserves from the BCRA, indexed by date.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :return: DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'RRII', 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with the 'RRII' series and 'Date'.
     """
     if api:
         df = get_from_api(1, 'RRII')
@@ -441,14 +509,16 @@ def get_international_reserves(date_cod: bool = False, api: bool = True) -> pd.D
     return df.rename(columns={'Fecha': 'Date'}) if 'Fecha' in df.columns else df
 
 def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de préstamos del BCRA.
+    """Retrieves daily data of BCRA loans.
 
-    Returns a DataFrame with daily data on loans from the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        online (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param online: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :return: DataFrame 'Fecha', 'Creditos', 'Date', 'Dia', 'Mes', 'Año' / DataFrame 'Fecha', 'Creditos', 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with the 'Creditos' series and 'Date'.
     """
     if online:
         df = get_from_api(117, 'Préstamos')
@@ -460,40 +530,44 @@ def get_loans(date_cod: bool = False, online: bool = True) -> pd.DataFrame:
         return df
 
 def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los datos diarios de las tasas de interés para los plazos fijos de 30-44 días.
+    """Retrieves various BCRA interest rates.
 
-    Returns a DataFrame with daily interest rate data for 30-44 day fixed-term deposits.
+    This function fetches interest rates for fixed terms, LELIQs, and repos, 
+    calculating Monthly Effective (TEM) and Annual Effective (TEA) rates.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param api: Define si se utiliza la API del BCRA o un el archivo series.xlsm local / If True, use the BCRA API; otherwise, use the local series.xlsm file.
-    :param type: Tipo de tasas a procesar (0: pesos, 1: ambas, 2: dólares) / Type of rates to process (0: pesos, 1: both, 2: dollars).
-    :return: DataFrame 'TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'TEM_GenP', 'TEM_100KP', 'TEM_1MP', 'TEA_GenP', 'TEA_100KP', 'TEA_1MP', 'Fecha' (para type=0); similar para type=1 y type=2 / DataFrame 'TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'TEM_GenP', 'TEM_100KP', 'TEM_1MP', 'TEA_GenP', 'TEA_100KP', 'TEA_1MP', 'Fecha' (for type=0); similar for type=1 and type=2.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        api (bool, optional): If True, uses the BCRA API; otherwise, uses 
+            the local series.xlsm file. Defaults to True.
+        type (int, optional): Type of rates to process (0: pesos, 1: both, 2: dollars). 
+            Defaults to 0.
+
+    Returns:
+        pd.DataFrame: A DataFrame with various interest rate series and their TEM/TEA equivalents.
     """
     columns_pesos = ['TNA_GenP', 'TNA_100KP', 'TNA_1MP', 'Date']
     columns_dolares = ['TNA_GenD', 'TNA_100KD', 'TNA_1MD', 'Date']
 
     def get_file() -> pd.DataFrame:
-        """
-        Devuelve un DataFrame con los datos de tasas de mercado del BCRA.
+        """Retrieves market rate data from the BCRA's Excel file.
 
-        Returns a DataFrame with market rate data from the BCRA.
-
-        :return: DataFrame con datos de tasas de mercado / DataFrame with market rate data.
+        Returns:
+            pd.DataFrame: A DataFrame with market rate data.
         """
         df = get_file_bcra('TASAS DE MERCADO')
         df.columns = [str(i) for i in range(1, len(df.columns) + 1)]
         return df
 
     def calculate_rates(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-        """
-        Calcula TEM y TEA para un subconjunto de datos de tasas de interés.
+        """Calculates TEM and TEA for a given set of interest rates.
 
-        Calculates TEM and TEA for a subset of interest rate data.
+        Args:
+            df (pd.DataFrame): DataFrame containing interest rate data.
+            columns (list[str]): List of column names to assign.
 
-        :param df: Subconjunto de DataFrame con datos de tasas de interés / Subset of DataFrame with interest rate data.
-        :param columns: Lista de nombres de columnas a procesar / List of column names to process.
-        :return: DataFrame con columnas calculadas TEM y TEA / DataFrame with calculated TEM and TEA columns.
+        Returns:
+            pd.DataFrame: A DataFrame with additional TEM and TEA columns.
         """
         df.columns = columns
 
@@ -551,29 +625,42 @@ def get_rates(date_cod: bool = False, api: bool = True, type: int = 0) -> pd.Dat
     return df
 
 def get_reference_rates() -> pd.DataFrame:
+    """Retrieves standard reference rates (TAMAR, BADLAR, TM20) from the BCRA API.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the reference rate series.
+    """
     return get_series_api([(135, 'TAMAR'), (138, 'BADLAR'), (141, 'TM20')])
 
 def get_tamar(kind: int = 1) -> pd.DataFrame:
-    if kind == 1:
-        return get_from_api(136, 'TAMAR_PB')
-    return pd.DataFrame()
+    """Retrieves the TAMAR_PB (Tasa de Mercado de Arreglo Repos) rate.
+
+    Args:
+        kind (int, optional): Identifier for the TAMAR type. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'TAMAR_PB' series.
+    """
 
 def get_leliqs_rates() -> pd.DataFrame:
-    """
-    Tasas de interés de LEBAC en Pesos / LELIQ de 1 mes, TNA (en %)
-    :return:
+    """Retrieves the interest rates for LELIQs (1 month, TNA in %).
+
+    Returns:
+        pd.DataFrame: A DataFrame with the 'leliq_rate' series.
     """
     return get_from_api(166, 'leliq_rate')
 
 def get_itcrm(date_cod: bool = False, monthly: bool = False):
-    """
-    Devuelve un DataFrame con los datos del Índice de Tipo de Cambio Real Multilateral (ITCRM) del BCRA.
+    """Retrieves Multilateral Real Exchange Rate Index (ITCRM) data from the BCRA.
 
-    Returns a DataFrame with data from the Multilateral Real Exchange Rate Index (ITCRM) of the BCRA.
+    Args:
+        date_cod (bool, optional): If True, adds columns for date code 'Date'. 
+            Defaults to False.
+        monthly (bool, optional): If True, returns monthly average indexes. 
+            Defaults to False.
 
-    :param date_cod: Define si agregan columnas para código de fecha 'Date' / If True, add columns for date code 'Date'.
-    :param monthly: Define si se devuelven promedios mensuales / If True, return monthly averages.
-    :return: DataFrame con columnas 'Fecha' y datos del ITCRM, opcionalmente con 'Date', 'Dia', 'Mes', 'Año' / DataFrame with 'Fecha' column and ITCRM data, optionally with 'Date', 'Dia', 'Mes', 'Año'.
+    Returns:
+        pd.DataFrame: A DataFrame with ITCRM data indexed by Date.
     """
     if monthly:
         if date_cod:
@@ -587,9 +674,26 @@ def get_itcrm(date_cod: bool = False, monthly: bool = False):
 # Tools. It can be OOP one day.
 
 def get_annual_variations(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculates year-on-year variations for a given DataFrame.
+
+    Args:
+        df (pd.DataFrame): Time-series DataFrame.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the annual percentage changes.
+    """
     return df.resample('YE').last().pct_change()
 
 def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
+    """Retrieves daily data of USD deposits in the financial system.
+
+    Args:
+        kind (int, optional): Type of deposits to retrieve (1: Total, 2: Public, 3: Private). 
+            Defaults to 3.
+
+    Returns:
+        pd.DataFrame: A DataFrame with USD deposit columns and Date.
+    """
     match kind:
         case 1:
             return get_file_bcra_plus(4, [539, 540]).rename(columns={539: "Total_Total", 540: "Total_efectivo"})
@@ -601,11 +705,38 @@ def get_usd_deposits(kind: int = 3) -> pd.DataFrame:
             return pd.DataFrame()
 
 def get_interbank_market_data() -> pd.DataFrame:
+    """Retrieves various interbank market data (Call and Pases) from the BCRA API.
+
+    Returns:
+        pd.DataFrame: A DataFrame with columns for Tasa/Monto Call and Pases.
+    """
     df = get_series_api([(146, 'Tasa Call Privado'), (147, 'Monto Call Privado'), (148, 'Tasa Call Total'), (149, 'Monto Call Total'), (150, 'Tasa Pases'), (151, 'Monto Pases')])
     return df
 
 def get_money_demand(config: dict, real: bool = True, estimado: bool = False, monthly_mean: bool = False) -> pd.DataFrame:
+    """Retrieves and calculates money demand metrics from the BCRA.
+
+    Args:
+        config (dict): Configuration dictionary containing script and file paths.
+        real (bool, optional): If True, calculates demand in real terms. 
+            Defaults to True.
+        estimado (bool, optional): If True, uses estimated PBI data. 
+            Defaults to False.
+        monthly_mean (bool, optional): If True, returns monthly average demand. 
+            Defaults to False.
+
+    Returns:
+        pd.DataFrame: A DataFrame with money demand metrics.
+    """
     def tratar_pbi(pib: pd.DataFrame) -> pd.DataFrame:
+        """Processes and merges PBI data with monetary aggregates to calculate demand.
+
+        Args:
+            pib (pd.DataFrame): PBI data DataFrame.
+
+        Returns:
+            pd.DataFrame: A DataFrame with demand calculations.
+        """
         pib['year'] = pib.index.year
         pib['quarter'] = pib.index.quarter
         pib['var'] = pib['PBI'].pct_change()
@@ -683,12 +814,10 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False, mo
              'Demanda_DT_A', 'Demanda_M2_A']].copy()
 
 def main() -> None:
-    """
-    Ejecuta el programa principal para procesar datos del BCRA.
+    """Main execution function for processing BCRA data.
 
-    Runs the main program to process BCRA data.
-
-    :return: None / None.
+    Returns:
+        None
     """
 
 
