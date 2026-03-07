@@ -116,17 +116,11 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
         data['Date'] = data.index
         return data
 
-    match file:
-        case 1:
-            return download(URL_BCRA_BAL, div)[['Date'] + serie].copy()
-        case 2:
-            return download(URL_BCRA_RES, div)[['Date'] + serie].copy()
-        case 3:
-            return download(URL_BCRA_ACT, div)[['Date'] + serie].copy()
-        case 4:
-            return download(URL_BCRA_PAS, div)[['Date'] + serie].copy()
-        case _:
-            return pd.DataFrame()
+    links = {1: URL_BCRA_BAL, 2: URL_BCRA_RES, 3: URL_BCRA_ACT, 4: URL_BCRA_PAS}
+    
+    if file in links:
+        return download(links[file], div)[['Date'] + serie].copy()
+    return pd.DataFrame()
 
 def get_principales_variables() -> None:
     """
@@ -615,7 +609,8 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False, mo
         pib['year'] = pib.index.year
         pib['quarter'] = pib.index.quarter
         pib['var'] = pib['PBI'].pct_change()
-        # TODO the monetary base it is pulled more the one time.
+        
+        # Pulling monetary data once
         base = get_monetary_base()
         m2 = get_m2(date_cod=True).drop(columns=['month', 'Date_Cod', 'day']).copy()
         dinero = pd.concat([base, m2], axis='columns').dropna().copy()
@@ -627,21 +622,12 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False, mo
         final['Dia'] = final['Date'].apply(pbi.days_in_quarter, args=(False,))
         final['PBI_Ajustado'] = final['PBI'] / (1 + final['var'])
         final['PBI_Ajustado'] = final['PBI_Ajustado'] * (1 + final['var']) ** (final['Dia'] / final['Cant_D'])
-        final['Demanda_BMT'] = final['BMT'] / final['PBI'] *100
-        final['Demanda_CM'] = final['CM'] / final['PBI'] *100
-        final['Demanda_DPP'] = final['DPP'] / final['PBI'] *100
-        final['Demanda_DPB'] = final['DPB'] / final['PBI'] *100
-        final['Demanda_CCBCRA'] = final['CCBCRA'] / final['PBI'] *100
-        final['Demanda_DT'] = final['DT'] / final['PBI'] *100
-        final['Demanda_M2'] = final['M2'] / final['PBI'] *100
-
-        final['Demanda_BMT_A'] = final['BMT'] / final['PBI_Ajustado'] *100
-        final['Demanda_CM_A'] = final['CM'] / final['PBI_Ajustado'] *100
-        final['Demanda_DPP_A'] = final['DPP'] / final['PBI_Ajustado'] *100
-        final['Demanda_DPB_A'] = final['DPB'] / final['PBI_Ajustado'] *100
-        final['Demanda_CCBCRA_A'] = final['CCBCRA'] / final['PBI_Ajustado'] *100
-        final['Demanda_DT_A'] = final['DT'] / final['PBI_Ajustado'] *100
-        final['Demanda_M2_A'] = final["M2"] / final['PBI_Ajustado'] *100
+        # Vectorized demand calculation
+        demand_cols = ['BMT', 'CM', 'DPP', 'DPB', 'CCBCRA', 'DT', 'M2']
+        for col in demand_cols:
+            if col in final.columns:
+                final[f'Demanda_{col}'] = final[col] / final['PBI'] * 100
+                final[f'Demanda_{col}_A'] = final[col] / final['PBI_Ajustado'] * 100
 
         return final
 
