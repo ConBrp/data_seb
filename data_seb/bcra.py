@@ -137,16 +137,14 @@ def get_file_bcra_plus(file: int, serie: list[int], div: bool = True) -> pd.Data
         return download(links[file], div)[['Date'] + serie].copy()
     return pd.DataFrame()
 
-def get_principales_variables() -> None:
-    """Retrieves and saves the main variables accessible via the BCRA API.
-
-    The results are saved to an Excel file named 'Principales_variables.xlsx'.
+def get_principales_variables() -> pd.DataFrame:
+    """Retrieves the main variables accessible via the BCRA API.
 
     Returns:
-        None
+        pd.DataFrame: A DataFrame containing the results of 'Principales Variables'.
     """
     response = requests.get(URL_API_MON, verify=False)
-    return pd.DataFrame(response.json()['results']).to_excel('Principales_variables.xlsx')
+    return pd.DataFrame(response.json()['results'])
 
 def get_from_api(idvariable: int, nombre: str) -> pd.DataFrame:
     """Retrieves historical data for a specific variable from the BCRA API.
