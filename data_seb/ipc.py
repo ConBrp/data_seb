@@ -1,5 +1,7 @@
 import pandas as pd
 import calendar
+import json
+from datetime import datetime
 # import print_calendar
 
 from . import cod
@@ -149,6 +151,39 @@ def get_ponderadores_ipc() -> pd.DataFrame:
     ponderadores.columns = ['Codigo', 'Descripcion', 'GBA', 'Pampeana', 'Noreste', 'Noroeste', 'Cuyo', 'Patagonia']
     ponderadores['Codigo'] = ponderadores['Codigo'].astype(str)
     return ponderadores
+
+
+def get_next_indec_release_date(dates_file: str) -> datetime | None:
+    """
+    Reads INDEC release dates from a JSON file and returns the first future date.
+
+    :param dates_file: Path to the JSON file with release dates.
+    :return: Next release datetime or None if not found.
+    """
+    try:
+        with open(dates_file, 'r') as f:
+            data = json.load(f)
+        
+        now = datetime.now()
+        # Flatten all dates across years
+        all_dates = []
+        for year in data:
+            all_dates.extend(data[year])
+        
+        # Convert to datetime and sort
+        date_objs = sorted([datetime.strptime(d, "%Y-%m-%d") for d in all_dates])
+        
+        for release_date in date_objs:
+            # We want the next release date that is in the future
+            if release_date.date() >= now.date():
+                # If it's today, we only schedule it if it's before 20:00 (since we run at 20:00)
+                # But typically this function is called AFTER a run, so we likely want the next one.
+                if release_date.date() == now.date() and now.hour >= 20:
+                    continue
+                return release_date
+    except Exception as e:
+        print(f"Error reading INDEC dates file: {e}")
+    return None
 
 
 def main() -> None:
