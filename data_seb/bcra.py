@@ -644,6 +644,7 @@ def get_tamar(kind: int = 1) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A DataFrame with the 'TAMAR_PB' series.
     """
+    return get_from_api(135, 'TAMAR_PB')
 
 def get_leliqs_rates() -> pd.DataFrame:
     """Retrieves the interest rates for LELIQs (1 month, TNA in %).
