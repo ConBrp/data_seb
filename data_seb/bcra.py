@@ -851,13 +851,22 @@ def get_money_demand(config: dict, real: bool = True, estimado: bool = False, mo
         pib['var'] = pib['PBI'].pct_change()
         
         # Pulling monetary data once
-        base = get_monetary_base()
-        m2 = get_m2(date_cod=True).drop(columns=['month', 'Date_Cod', 'day']).copy()
+        base = get_monetary_base().drop(columns=['Date'], errors='ignore')
+        m2 = get_m2(date_cod=True).drop(columns=['month', 'Date_Cod', 'day'], errors='ignore').copy()
         dinero = pd.concat([base, m2], axis='columns').dropna().copy()
+        
+        # Add year/quarter and ensure only one 'Date' column from the index
+        dinero['Date'] = dinero.index
+        dinero['year'] = dinero.index.year
         dinero['quarter'] = dinero.index.quarter
+        
         pib['Code'] = pib['year'].astype(int).astype(str) + '-' + pib['quarter'].astype(int).astype(str)
         dinero['Code'] = dinero['year'].astype(int).astype(str) + '-' + dinero['quarter'].astype(int).astype(str)
+        
+        # Merge quarterly PBI onto daily monetary data using Code (year-quarter)
+        # Drop columns from dinero that are redundant or would be duplicated
         final = pd.merge(pib, dinero.drop(columns=['year', 'quarter']).copy(), on='Code', how='inner').replace({np.nan: 0})
+        
         final['Cant_D'] = final['Date'].apply(pbi.days_in_quarter)
         final['Dia'] = final['Date'].apply(pbi.days_in_quarter, args=(False,))
         final['PBI_Ajustado'] = final['PBI'] / (1 + final['var'])
