@@ -4,15 +4,15 @@ COLS = ['Date', 'Date_Cod', 'day']
 
 
 def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con código Date.
+    """Return a DataFrame with date columns formatted.
 
-    Returns a DataFrame with Date code.
+    Args:
+        df: DataFrame to convert.
+        date: Name of the column containing the date.
+        day: If True, extract and add a 'day' column.
 
-    :param df: DataFrame a convertir / DataFrame to convert.
-    :param date: Nombre de la columna con fecha / Name of the column with the date.
-    :param day: Si agregar día o no / If True, add the day column.
-    :return: DataFrame 'Mes', 'Año', 'Date' / DataFrame 'Mes', 'Año', 'Date'.
+    Returns:
+        The DataFrame with added 'month', 'year', and 'Date_Cod' columns.
     """
     if day:
         df['day'] = df[date].dt.day
@@ -27,29 +27,24 @@ def get_date(df: pd.DataFrame, date: str = 'Date', day: bool = True) -> pd.DataF
 
 
 def get_date_ipc(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con código Date con día al final de mes.
+    """Return a DataFrame with end-of-month dates and Date_Cod.
 
-    Returns a DataFrame with Date code, setting the day to the end of the month.
+    Args:
+        df: DataFrame to convert, containing a 'Periodo' column in YYYYMM format.
 
-    :param df: DataFrame a convertir / DataFrame to convert.
-    :return: DataFrame 'Mes', 'Año', 'Date' / DataFrame 'Mes', 'Año', 'Date'.
+    Returns:
+        The DataFrame with 'month', 'Año', 'Date' (MonthEnd offset), and 'Date_Cod' columns.
     """
     df['Periodo'] = pd.to_datetime(df['Periodo'], format='%Y%m')
     df['month'] = df['Periodo'].dt.month
     df['Año'] = df['Periodo'].dt.year
     df['Date'] = df['Periodo'] + pd.offsets.MonthEnd(0)
+    df['Date_Cod'] = df['Date'].dt.strftime('%m-%Y')
     return df
 
 
 def main() -> None:
-    """
-    Ejecuta el programa principal para procesar datos de fechas.
-
-    Runs the main program to process date data.
-
-    :return: None / None.
-    """
+    """Run the main program to process date data."""
     print(f'Se corrió el main de {__name__}')
 
 

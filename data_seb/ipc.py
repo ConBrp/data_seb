@@ -8,16 +8,17 @@ from . import cod
 
 URL_INDEC_DIVISIONES = 'https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv'
 URL_INDEC_APERTURAS = 'https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_aperturas.csv'
+URL_INDEC_PONDERADORES = 'https://www.indec.gob.ar/ftp/cuadros/economia/ponderadores_ipc.xls'
 
 
 def get_file_indec(tipo: int = 1) -> pd.DataFrame | None:
-    """
-    Devuelve un DataFrame del tipo seleccionado: 1 para serie_ipc_divisiones, 2 para serie_ipc_aperturas.
+    """Fetch division or opening data from INDEC CSV files.
 
-    Returns a DataFrame of the selected type: 1 for serie_ipc_divisiones, 2 for serie_ipc_aperturas.
+    Args:
+        tipo: 1 for divisions, 2 for openings.
 
-    :param tipo: Tipo a seleccionar (1: serie_ipc_divisiones, 2: serie_ipc_aperturas) / Type to select (1: serie_ipc_divisiones, 2: serie_ipc_aperturas).
-    :return: DataFrame con datos de la hoja seleccionada o None si el tipo es inválido / DataFrame with data from the selected sheet or None if the type is invalid.
+    Returns:
+        DataFrame containing the CSV data, or None if the type is invalid.
     """
     match tipo:
         case 1:
@@ -31,13 +32,13 @@ def get_file_indec(tipo: int = 1) -> pd.DataFrame | None:
 
 
 def get_ipc(file_infla_empalmada: str) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos mensuales del IPC, del archivo IPC2000.xlsx.
+    """Read and format monthly IPC data from local XLSX file.
 
-    Returns a DataFrame with monthly IPC data from the IPC2000.xlsx file.
+    Args:
+        file_infla_empalmada: Path to the IPC2000.xlsx file.
 
-    :param file_infla_empalmada: Ruta al archivo IPC2000.xlsx / Path to the IPC2000.xlsx file.
-    :return: DataFrame 'Fecha', 'Date', 'IPC', 'InflaMensual', 'CantD', 'Mes', 'Año' / DataFrame 'Fecha', 'Date', 'IPC', 'InflaMensual', 'CantD', 'Mes', 'Año'.
+    Returns:
+        DataFrame containing date, IPC, monthly inflation, and month length.
     """
     ipc = pd.read_excel(file_infla_empalmada)
     ipc['Date'] = pd.to_datetime(ipc['Date'], format='%Y-%m-%d')
@@ -51,13 +52,13 @@ def get_ipc(file_infla_empalmada: str) -> pd.DataFrame:
 
 
 def get_act_cap(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos diarios, para actualizar y capitalizar valores.
+    """Calculate updating and capitalizing indices.
 
-    Returns a DataFrame with daily data for updating and capitalizing values.
+    Args:
+        df: DataFrame with IPC, InflaMensual, day, and CantD columns.
 
-    :param df: DataFrame con datos de 'IPC', 'InflaMensual', 'Dia', 'CantD' / DataFrame with 'IPC', 'InflaMensual', 'Dia', 'CantD' data.
-    :return: DataFrame 'Actualizador', 'Capitalizador' / DataFrame 'Actualizador', 'Capitalizador'.
+    Returns:
+        DataFrame with computed 'Actualizador' and 'Capitalizador' columns.
     """
     df['IPC'] = df['IPC'] / (1 + df['InflaMensual'])
     df['IPC'] = df['IPC'] / df['IPC'].iloc[0]
@@ -70,12 +71,10 @@ def get_act_cap(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_ipc_indec() -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con datos mensuales del IPC, del archivo del INDEC.
+    """Fetch monthly IPC data from INDEC website and format as national index.
 
-    Returns a DataFrame with monthly IPC data from the INDEC file.
-
-    :return: DataFrame 'IPC', 'VarMoM', 'VarYoY', 'InflaMensual', 'Date' / DataFrame 'IPC', 'VarMoM', 'VarYoY', 'InflaMensual', 'Date'.
+    Returns:
+        DataFrame containing national IPC, MoM variation, YoY variation, and Date_Cod.
     """
     df = get_file_indec()
     nacional = df.query("Codigo == '0' & Region == 'Nacional'")[
@@ -88,47 +87,47 @@ def get_ipc_indec() -> pd.DataFrame:
     return nacional
 
 
-def get_div_ipc(tipo: int = 1) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame del tipo seleccionado: 1 para las 12 divisiones COICOP, 2 para categorías, 3 para bienes y servicios.
+def get_div_ipc(tipo: int = 1, region: str = 'Nacional') -> pd.DataFrame:
+    """Get division indices, categories, or goods/services for a region.
 
-    Returns a DataFrame of the selected type: 1 for the 12 COICOP divisions, 2 for categories, 3 for goods and services.
+    Args:
+        tipo: 1 for divisions, 2 for categories, 3 for goods/services.
+        region: Region to filter by.
 
-    :param tipo: Tipo a seleccionar (1: divisiones COICOP, 2: categorías, 3: bienes y servicios) / Type to select (1: COICOP divisions, 2: categories, 3: goods and services).
-    :return: DataFrame 'Codigo', 'Descripcion', 'Indice_IPC', 'Date', 'Mes', 'Año' / DataFrame 'Codigo', 'Descripcion', 'Indice_IPC', 'Date', 'Mes', 'Año'.
+    Returns:
+        DataFrame containing division/category indices for the specified region.
     """
     general = get_file_indec()
-    columnas = ['Codigo', 'Descripcion', 'Periodo', 'Indice_IPC']
+    columnas = ['Codigo', 'Descripcion', 'Periodo', 'Indice_IPC', 'Region']
     match tipo:
         case 1:
-            nacional = general.query("Region == 'Nacional' & Clasificador == 'Nivel general y divisiones COICOP'")[
-                columnas].copy().reset_index(drop=1)
+            df = general.query("Region == @region & Clasificador == 'Nivel general y divisiones COICOP'")[ columnas].copy().reset_index(drop=1)
         case 2:
-            nacional = general.query("Region == 'Nacional' & Clasificador == 'Categorias'")[
-                columnas].copy().reset_index(drop=1)
-            nacional['Descripcion'] = nacional['Codigo'].copy()
+            df = general.query("Region == @region & Clasificador == 'Categorias'")[ columnas].copy().reset_index(drop=1)
+            df['Descripcion'] = df['Codigo'].copy()
         case 3:
-            nacional = general.query("Region == 'Nacional' & Clasificador == 'Bienes y servicios'")[
-                columnas].copy().reset_index(drop=1)
-            nacional['Descripcion'] = nacional['Codigo'].apply(
-                lambda x: 'Bienes' if x == 'B' else ('Servicios' if x == 'S' else 'Other'))
+            df = general.query("Region == @region & Clasificador == 'Bienes y servicios'")[ columnas].copy().reset_index(drop=1)
+            df['Descripcion'] = df['Codigo'].apply( lambda x: 'Bienes' if x == 'B' else ('Servicios' if x == 'S' else 'Other'))
         case _:
-            nacional = None
+            df = None
             print('Error en get_div_IPC(tipo: int = 1)')
 
-    nacional['Indice_IPC'] = pd.to_numeric(nacional['Indice_IPC'], errors='coerce')
-    nacional = cod.get_date_ipc(nacional) # TODO, puede ser que se haga más fácil y borrar la función.
-    return nacional[['Codigo', 'Descripcion', 'Indice_IPC', 'Date_Cod']].copy()
+    if df is None:
+        return None
+
+    df['Indice_IPC'] = pd.to_numeric(df['Indice_IPC'], errors='coerce')
+    df = cod.get_date_ipc(df)
+    return df[['Codigo', 'Descripcion', 'Indice_IPC', 'Date_Cod', 'Region']].copy()
 
 
 def get_aper_ipc(prepagas: bool = True) -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con las aperturas del IPC.
+    """Fetch and parse detailed IPC openings from INDEC.
 
-    Returns a DataFrame with the IPC openings.
+    Args:
+        prepagas: If True, normalize prepagas code.
 
-    :param prepagas: Si corrige el código de prepagas o no / If True, correct the prepagas code.
-    :return: DataFrame 'Codigo', 'Periodo', 'Indice_IPC', 'Region', 'Descripcion_aperturas' / DataFrame 'Codigo', 'Periodo', 'Indice_IPC', 'Region', 'Descripcion_aperturas'.
+    Returns:
+        DataFrame with detailed opening indices by region.
     """
     aperturas = get_file_indec(2)
     aperturas['Codigo'] = aperturas['Codigo'].astype(str)
@@ -139,15 +138,13 @@ def get_aper_ipc(prepagas: bool = True) -> pd.DataFrame:
 
 
 def get_ponderadores_ipc() -> pd.DataFrame:
-    """
-    Devuelve un DataFrame con los ponderadores para las categorías según regiones, del archivo ponderadores_ipc.xls.
+    """Fetch regional weight shares for IPC categories.
 
-    Returns a DataFrame with the weights for categories by region from the ponderadores_ipc.xls file.
-
-    :return: DataFrame 'Codigo', 'Descripcion', 'GBA', 'Pampeana', 'Noreste', 'Noroeste', 'Cuyo', 'Patagonia' / DataFrame 'Codigo', 'Descripcion', 'GBA', 'Pampeana', 'Noreste', 'Noroeste', 'Cuyo', 'Patagonia'.
+    Returns:
+        DataFrame containing weights by region for each category code.
     """
-    ponderadores = pd.read_excel(r'C:\Users\berge\Desktop\Me\programs\1X\Data\ponderadores_ipc.xls', header=2).iloc[:-2,
-                   :].copy()
+    ponderadores = pd.read_excel(URL_INDEC_PONDERADORES, header=2).iloc[:-2,
+    :].copy()
     ponderadores.columns = ['Codigo', 'Descripcion', 'GBA', 'Pampeana', 'Noreste', 'Noroeste', 'Cuyo', 'Patagonia']
     ponderadores['Codigo'] = ponderadores['Codigo'].astype(str)
     return ponderadores
@@ -187,13 +184,7 @@ def get_next_indec_release_date(dates_file: str) -> datetime | None:
 
 
 def main() -> None:
-    """
-    Ejecuta el programa principal para procesar datos del IPC.
-
-    Runs the main program to process IPC data.
-
-    :return: None / None.
-    """
+    """Run the main program to process IPC data."""
     print(f'Se corrió el main de {__name__}')
 
 
