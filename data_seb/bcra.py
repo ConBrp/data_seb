@@ -722,24 +722,59 @@ def _get_latest_rem_url() -> str:
         return None
     return None
 
-def get_inflation_expectations(url: str = None) -> pd.DataFrame:
+def _build_rem_url(date: str | date | None = None) -> str:
+    """Builds a BCRA REM report URL for a given month and year.
+
+    Args:
+        date: Month and year to use. Accepts a ``datetime.date`` or a
+            string in ``YYYY-MM`` format. Defaults to today.
+
+    Returns:
+        str: URL of the REM Excel report for the given month/year.
+    """
+    if date is None:
+        target = datetime.now().date()
+    elif isinstance(date, str):
+        target = datetime.strptime(date, '%Y-%m').date()
+    else:
+        target = date
+
+    months = (
+        'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+        'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+    )
+    month_abbr = months[target.month - 1]
+    return (
+        'https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/'
+        f'informes/tablas-relevamiento-expectativas-mercado-{month_abbr}-{target.year}.xlsx'
+    )
+
+
+def get_inflation_expectations(
+    url: str | None = None,
+    date: str | date | None = None,
+) -> pd.DataFrame:
     """Retrieves inflation expectations from the BCRA REM report.
 
     Args:
-        url (str, optional): URL of the BCRA REM report Excel file. 
-            If None, attempts to discover the latest available URL.
+        url: URL of the BCRA REM report Excel file. If provided, it is
+            used directly. If None, the latest available URL is discovered.
+        date: Month and year to use as a fallback when ``url`` is not
+            provided and the latest URL cannot be discovered. Accepts a
+            ``datetime.date`` or a string in ``YYYY-MM`` format. Defaults
+            to the current month and year.
 
     Returns:
-        pd.DataFrame: A DataFrame with 'Date' and 'Expected_Inflation' 
+        pd.DataFrame: A DataFrame with 'Date' and 'Expected_Inflation'
             (median) columns.
     """
     if url is None:
         url = _get_latest_rem_url()
-    
+
     if url is None:
-        # Fallback to the last known manual URL if discovery fails
-        url = 'https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/informes/tablas-relevamiento-expectativas-mercado-feb-2026.xlsx'
-    
+        # Fallback to a URL built from the requested month/year.
+        url = _build_rem_url(date)
+
     df = pd.read_excel(url, sheet_name='Cuadros de resultados', header=None)
     
     estimations = []
